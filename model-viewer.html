@@ -172,10 +172,8 @@ $('properties').onclick=async()=>{
  try{
   say('استخراج عينة من شجرة العناصر…');
   const tree=await getTree(),ids=[];
-  tree.enumNodeChildren(tree.getRootId(),function walk(dbid){
-    if(ids.length>=800)return;
-    if(tree.getChildCount(dbid)===0)ids.push(dbid);
-    else tree.enumNodeChildren(dbid,walk);
+  tree.enumNodeChildren(tree.getRootId(),dbid=>{
+    if(ids.length<800 && tree.getChildCount(dbid)===0)ids.push(dbid);
   },true);
   // Cap the sample to avoid exhausting phone memory and excessively large reports.
   report=[];
