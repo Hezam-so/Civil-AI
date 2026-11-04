@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#081327"><title>Civil AI | DXF Drawing Explorer</title>
+<style>
+:root{--bg:#081121;--panel:#102039;--line:#294564;--text:#edf6ff;--muted:#a5b7cd;--blue:#39a8f2;--aqua:#47dbde}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#142f4d,var(--bg) 60%);color:var(--text);font:15px/1.6 system-ui,Segoe UI,Tahoma,Arial,sans-serif}
+a{color:#74ddf3;text-decoration:none}.shell{max-width:1400px;margin:auto;padding:20px}
+header{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding:8px 0 18px}
+header b{font-size:22px}header small{display:block;color:var(--muted);font-size:12px}
+h1{font-size:clamp(26px,4vw,38px);margin:24px 0 4px}p{margin:4px 0 15px;color:var(--muted)}
+.tag{font:12px monospace;color:#69e0ed;letter-spacing:2px}
+.card{background:linear-gradient(130deg,#10233d,#101a2d);border:1px solid var(--line);border-radius:17px;padding:19px;margin-top:16px}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 310px;gap:14px}
+button,.linkbtn{font:inherit;border:1px solid #3b6385;border-radius:10px;color:var(--text);background:#173553;padding:9px 14px;cursor:pointer;display:inline-block}
+button:hover,.linkbtn:hover{border-color:var(--aqua)}button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:#187fc0;border-color:#329cdb;font-weight:700}
+#upload{display:block;width:100%;max-width:540px;border:2px dashed #3b7293;border-radius:13px;padding:25px 14px;background:#0b223a;color:#d1e9ff}
+.bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:13px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.stat{padding:13px;background:#0a1c32;border:1px solid #2a435f;border-radius:12px}
+.stat small{display:block;color:var(--muted);font-size:12px}.stat strong{color:#73e2ef;font-size:21px;direction:ltr;display:block}
+#drawing{display:block;width:100%;height:580px;background:#07172a;border-radius:12px;border:1px solid #2b4867;touch-action:none;cursor:grab}
+#drawing:active{cursor:grabbing}.layers{max-height:480px;overflow:auto}.layer{display:flex;align-items:center;gap:8px;padding:9px 6px;border-bottom:1px solid #26405a}
+.layer span{overflow-wrap:anywhere}.layer input{accent-color:#42d5e9}
+#notice{white-space:pre-wrap;color:#f8d8aa}.minor{color:#93aac5;font-size:12px}
+#meta{overflow-wrap:anywhere}.warn{border-inline-start:3px solid #e8b168;background:#332c23;padding:10px 13px;border-radius:6px;font-size:12px}
+@media(max-width:840px){.shell{padding:12px}.grid{grid-template-columns:1fr}#drawing{height:390px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:14px}}
+@media print{button,input,header,.warn,.bar{display:none!important}.shell{max-width:none}#drawing{height:500px}}
+</style></head>
+<body><div class="shell">
+<header><div><b>CIVIL <span style="color:#49d2ed">AI</span> | DXF Explorer</b><small>Engineering Drawing Inspector • v1.0</small></div>
+<div class="bar"><a class="linkbtn" href="studio.html">↩ العودة إلى Studio</a><a class="linkbtn" href="/">الرئيسية</a></div></header>
+<div class="tag" style="margin-top:22px">CAD / DRAWING INTELLIGENCE</div>
+<h1>عارض المخططات الهندسية DXF</h1>
+<p>افتح رسومات DXF النصية محليًا، وافحص الطبقات والعناصر والأطوال والمساحات الهندسية المبدئية دون إرسال الملف لأي خادم.</p>
+<div class="card">
+<label for="upload"><strong>اختر ملف DXF من جهازك</strong> — يفضل ASCII DXF حتى 10 MB</label>
+<input id="upload" type="file" accept=".dxf,text/plain">
+<div class="bar"><button id="sample" type="button">تجربة رسم توضيحي</button><button id="export" type="button" disabled>تصدير ملخص CSV</button><button type="button" onclick="window.print()">طباعة</button></div>
+<div id="meta" class="minor" style="margin-top:12px">لم يتم اختيار ملف بعد.</div></div>
+<div class="card warn">ملفات DWG / RVT / ETABS لا تُفتح بهذا العارض؛ يلزم تحويل أو قارئ متخصص. النتائج بوحدات الرسم كما يحددها ملف DXF دون افتراض أنها أمتار. لا تُستخدم لقياس كميات تنفيذية أو مراجعة سلامة إنشائية قبل التحقق من المقياس والإحداثيات والطبقات في البرنامج الأصلي.</div>
+<div id="notice" class="minor" aria-live="polite"></div>
+<div class="card"><div class="stats">
+<div class="stat"><small>العناصر المعروضة</small><strong id="count">0</strong></div>
+<div class="stat"><small>إجمالي الأطوال</small><strong id="length">—</strong></div>
+<div class="stat"><small>مساحات حدود مغلقة مستقيمة</small><strong id="area">—</strong></div>
+<div class="stat"><small>الطبقات</small><strong id="layersCount">0</strong></div>
+</div></div>
+<div class="grid">
+<section class="card"><div class="bar" style="margin:0 0 12px"><button id="fit">ملاءمة الرسم</button><button id="zoomIn">+ تكبير</button><button id="zoomOut">− تصغير</button><span class="minor">اسحب لتحريك الرسم</span></div>
+<svg id="drawing" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="معاينة هندسية للملف"></svg>
+<div class="minor" style="margin-top:8px">LINE · LWPOLYLINE · CIRCLE · ARC · TEXT — الهندسة المنحنية داخل Polyline (Bulge) لا تدخل في مجموعات القياس.</div>
+</section>
+<aside class="card"><h3 style="margin-top:0">الطبقات (Layers)</h3><div class="bar"><button id="all">إظهار الكل</button><button id="none">إخفاء الكل</button></div>
+<div id="layers" class="layers"><p class="minor">ستظهر الطبقات هنا عند فتح ملف.</p></div>
+<h3>ملاحظات التحليل</h3><div id="warnings" class="minor">المعاينة ثنائية الأبعاد ومحدودة بأنواع العناصر المذكورة.</div></aside></div>
+</div>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
+let model=null,visible=new Set(),view={x:-10,y:-10,w:20,h:20},drag=null,currentName='drawing.dxf';
+function parseDXF(text){
+ if(typeof text!=='string'||text.length>12000000)throw Error('حجم الملف كبير');
+ const raw=text.replace(/^\uFEFF/,'').split(/\r\n|\n|\r/),pairs=[];
+ for(let i=0;i+1<raw.length;i+=2)pairs.push({c:raw[i].trim(),v:raw[i+1].trim()});
+ let unitCode=0;for(let i=0;i<pairs.length-1;i++)if(pairs[i].c==='9'&&pairs[i].v==='$INSUNITS'){unitCode=Number(pairs[i+1].v)||0;break}
+ const units={0:'drawing units (unspecified)',1:'inches',2:'feet',4:'mm',5:'cm',6:'m',7:'km',10:'yards',14:'dm'}[unitCode]||'DXF unit code '+unitCode;
+ const entities=[],unsupported={},warnings=new Set();let section='';
+ const pt=(x,y)=>({x:Number(x),y:Number(y)}),valid=p=>Number.isFinite(p.x)&&Number.isFinite(p.y);
+ for(let i=0;i<pairs.length;){
+  const entry=pairs[i];
+  if(entry.c==='0'&&entry.v==='SECTION'){section=pairs[i+1]&&pairs[i+1].c==='2'?pairs[i+1].v:'';i+=2;continue}
+  if(entry.c==='0'&&entry.v==='ENDSEC'){section='';i++;continue}
+  if(section!=='ENTITIES'||entry.c!=='0'){i++;continue}
+  const type=entry.v,g=[];i++;while(i<pairs.length&&pairs[i].c!=='0')g.push(pairs[i++]);
+  const first=(k,d=NaN)=>{const x=g.find(x=>x.c===k);return x?Number(x.v):d};
+  const str=(k,d='')=>{const x=g.find(x=>x.c===k);return x?x.v:d};
+  const layer=str('8','0');let e=null;
+  if(type==='LINE'){
+   const a=pt(first('10'),first('20')),b=pt(first('11'),first('21'));
+   if(valid(a)&&valid(b))e={type,layer,points:[a,b],length:Math.hypot(b.x-a.x,b.y-a.y),area:0};
+  }else if(type==='LWPOLYLINE'){
+   const points=[];let current=null;
+   for(const item of g){if(item.c==='10'){current={x:Number(item.v),y:NaN,bulge:0};points.push(current)}
+    else if(item.c==='20'&&current&&!Number.isFinite(current.y))current.y=Number(item.v);
+    else if(item.c==='42'&&current)current.bulge=Number(item.v)}
+   const closed=(first('70',0)&1)!==0;
+   if(points.length>=2&&points.every(valid)){
+    let length=0,area=0,bulge=false;
+    const n=points.length-(closed?0:1);
+    for(let j=0;j<n;j++){const a=points[j],b=points[(j+1)%points.length];
+      if(Math.abs(a.bulge)>1e-10){bulge=true;continue}
+      length+=Math.hypot(b.x-a.x,b.y-a.y);if(closed)area+=a.x*b.y-b.x*a.y}
+    if(bulge)warnings.add('Bulge arcs: curved polyline segments were excluded from quantities.');
+    e={type,layer,points,closed,length,area:closed&&!bulge?Math.abs(area)/2:null,hasBulge:bulge};
+   }
+  }else if(type==='CIRCLE'||type==='ARC'){
+   const c=pt(first('10'),first('20')),r=first('40');
+   if(valid(c)&&r>0&&Number.isFinite(r)){
+    if(type==='CIRCLE')e={type,layer,c,r,points:[pt(c.x+r,c.y),pt(c.x-r,c.y),pt(c.x,c.y+r),pt(c.x,c.y-r)],length:2*Math.PI*r,area:0};
+    else{const start=first('50',0),end=first('51',0);
+     if(Number.isFinite(start)&&Number.isFinite(end)){const sweep=((end-start)%360+360)%360,points=[];
+      for(let k=0;k<=60;k++){const a=(start+sweep*k/60)*Math.PI/180;points.push(pt(c.x+r*Math.cos(a),c.y+r*Math.sin(a)))}
+      e={type,layer,c,r,points,length:r*sweep*Math.PI/180,area:0};}}
+   }
+  }else if(type==='TEXT'){const p=pt(first('10'),first('20'));if(valid(p))e={type,layer,points:[p],value:str('1','').slice(0,150),length:0,area:0}}
+  else if(type!=='ENDSEC'&&type!=='SEQEND')unsupported[type]=(unsupported[type]||0)+1;
+  if(e){if(g.some(x=>x.c==='30'&&Math.abs(Number(x.v))>1e-8))warnings.add('3D geometry is projected into 2D.');entities.push(e)}
+  if(entities.length>=12000){warnings.add('Showing at most 12000 supported entities.');break}
+ }
+ return {entities,unsupported,units,warnings:[...warnings]};
+}
+function add(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,String(attrs[k]));(parent||$('drawing')).append(e);return e}
+const num=x=>Number.isFinite(x)?x.toLocaleString('en-US',{maximumFractionDigits:3}):'—';
+const color=n=>'hsl('+((n*53+182)%360)+' 78% 67%)';
+function layers(){const ls=[...new Set(model.entities.map(e=>e.layer))].sort();visible=new Set(ls);const root=$('layers');root.replaceChildren();
+ ls.forEach((layer,i)=>{const label=document.createElement('label');label.className='layer';const input=document.createElement('input');input.type='checkbox';input.checked=true;input.onchange=()=>{input.checked?visible.add(layer):visible.delete(layer);render()};
+ const dot=document.createElement('span');dot.textContent='●';dot.style.color=color(i);const text=document.createElement('span');const count=model.entities.filter(e=>e.layer===layer).length;text.textContent=layer+' ('+count+')';label.append(input,dot,text);root.append(label)});
+ $('layersCount').textContent=ls.length;
+}
+function selected(){return model?model.entities.filter(e=>visible.has(e.layer)):[]}
+function fit(){const es=selected();const pts=es.flatMap(e=>e.points||[]);if(!pts.length){view={x:-10,y:-10,w:20,h:20};setView();return}
+ const xs=pts.map(p=>p.x),ys=pts.map(p=>-p.y);const a=Math.min(...xs),b=Math.min(...ys),w=Math.max(...xs)-a,h=Math.max(...ys)-b,p=Math.max(w,h,1)*.09;
+ view={x:a-p,y:b-p,w:Math.max(w+2*p,1),h:Math.max(h+2*p,1)};setView()}
+function setView(){$('drawing').setAttribute('viewBox',[view.x,view.y,view.w,view.h].join(' '))}
+function zoom(factor){const cx=view.x+view.w/2,cy=view.y+view.h/2;view.w*=factor;view.h*=factor;view.x=cx-view.w/2;view.y=cy-view.h/2;setView()}
+function render(){
+ const es=selected(),s=$('drawing');s.replaceChildren();const all=[...new Set(model.entities.map(e=>e.layer))].sort(),cmap=new Map(all.map((k,i)=>[k,color(i)]));
+ es.forEach(e=>{const stroke=cmap.get(e.layer)||'#62d8ef',p=e.points||[];if(e.type==='LINE'){add('line',{x1:p[0].x,y1:-p[0].y,x2:p[1].x,y2:-p[1].y,stroke,'stroke-width':.8,'vector-effect':'non-scaling-stroke'})}
+ else if(e.type==='LWPOLYLINE'||e.type==='ARC'){const coords=p.map(q=>q.x+','+(-q.y)).join(' ');add('polyline',{points:coords+(e.closed?' '+p[0].x+','+(-p[0].y):''),fill:'none',stroke,'stroke-width':1.3,'vector-effect':'non-scaling-stroke',...(e.hasBulge?{'stroke-dasharray':'4 4'}:{})})}
+ else if(e.type==='CIRCLE')add('circle',{cx:e.c.x,cy:-e.c.y,r:e.r,fill:'none',stroke,'stroke-width':1.2,'vector-effect':'non-scaling-stroke'});
+ else if(e.type==='TEXT'){const t=add('text',{x:p[0].x,y:-p[0].y,fill:stroke,'font-size':Math.max(view.w*.018,.01),'text-anchor':'start','transform':'translate(0 '+(-2*p[0].y)+') scale(1 -1)'});t.textContent=e.value}
+ });
+ $('count').textContent=num(es.length);const len=es.reduce((sum,e)=>sum+(e.length||0),0),area=es.reduce((sum,e)=>sum+(e.type==='LWPOLYLINE'&&Number.isFinite(e.area)?e.area:0),0);
+ $('length').textContent=num(len);$('area').textContent=num(area);$('export').disabled=!es.length;setView();
+}
+function show(data,name){
+ model=data;currentName=name;layers();fit();render();
+ $('meta').textContent=name+' · '+num(data.entities.length)+' supported entities · Units: '+data.units;
+ const u=Object.entries(data.unsupported).sort((a,b)=>b[1]-a[1]);
+ const lines=[...data.warnings];
+ if(u.length)lines.push('Skipped unsupported: '+u.map(([k,v])=>k+' ('+v+')').join(', '));
+ if(!data.entities.length)lines.push('No supported ENTITIES found. Check ASCII DXF format, model space, or convert from the original CAD software.');
+ $('warnings').textContent=lines.length?lines.join('\n'):'No parser warnings. Always check the original CAD drawing.';
+ $('notice').textContent='تم تحميل الملف محليًا؛ لم يتم رفعه إلى الخادم.';
+}
+$('upload').onchange=async e=>{
+ const file=e.target.files[0];if(!file)return;
+ try{
+  if(!/\.dxf$/i.test(file.name))throw Error('اختر ملف .dxf');
+  if(file.size>10*1024*1024)throw Error('الحد الأقصى 10 MB');
+  const text=await file.text();
+  if(text.includes('\u0000')||!text.includes('SECTION'))throw Error('هذا ليس ملف ASCII DXF صالحًا للمعاينة.');
+  show(parseDXF(text),file.name)
+ }catch(err){$('notice').textContent='خطأ: '+err.message}
+};
+$('fit').onclick=fit;$('zoomIn').onclick=()=>zoom(.8);$('zoomOut').onclick=()=>zoom(1.25);
+$('all').onclick=()=>{$('layers').querySelectorAll('input').forEach(i=>i.checked=true);visible=new Set(model?model.entities.map(e=>e.layer):[]);if(model)render()};
+$('none').onclick=()=>{$('layers').querySelectorAll('input').forEach(i=>i.checked=false);visible.clear();if(model)render()};
+const svg=$('drawing');svg.addEventListener('pointerdown',e=>{drag={x:e.clientX,y:e.clientY};svg.setPointerCapture(e.pointerId)});
+svg.addEventListener('pointermove',e=>{if(!drag)return;view.x-=(e.clientX-drag.x)*view.w/Math.max(1,svg.clientWidth);view.y-=(e.clientY-drag.y)*view.h/Math.max(1,svg.clientHeight);drag={x:e.clientX,y:e.clientY};setView()});
+svg.addEventListener('pointerup',()=>drag=null);svg.addEventListener('pointercancel',()=>drag=null);
+$('export').onclick=()=>{
+ if(!model)return;
+ const header=['layer','entity_count','total_length','closed_polyline_area','drawing_unit'];
+ const rows=[header.join(',')];const ls=[...new Set(model.entities.map(e=>e.layer))].filter(x=>visible.has(x));
+ for(const layer of ls){const es=model.entities.filter(e=>e.layer===layer);const len=es.reduce((a,b)=>a+(b.length||0),0),area=es.reduce((a,b)=>a+(Number.isFinite(b.area)&&b.type==='LWPOLYLINE'?b.area:0),0);
+ const escape=v=>'"'+String(v).replace(/"/g,'""')+'"';
+ rows.push([escape(layer),es.length,len.toFixed(5),area.toFixed(5),escape(model.units)].join(','))}
+ const blob=new Blob(['\uFEFF'+rows.join('\r\n')],{type:'text/csv;charset=utf-8'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=currentName.replace(/\.dxf$/i,'')+'-layer-summary.csv';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000)
+};
+$('sample').onclick=()=>{
+ const text=['0','SECTION','2','HEADER','9','$INSUNITS','70','6','0','ENDSEC','0','SECTION','2','ENTITIES','0','LINE','8','GRID','10','0','20','0','11','12','21','0','0','LWPOLYLINE','8','SLAB','70','1','10','0','20','0','10','8','20','0','10','8','20','6','10','0','20','6','0','CIRCLE','8','COLUMN','10','3','20','3','40','0.4','0','ARC','8','DETAIL','10','6','20','3','40','1.2','50','0','51','150','0','ENDSEC','0','EOF'].join('\n');
+ show(parseDXF(text),'illustrative-demo.dxf')
+};
+setView();
+</script></body></html>
