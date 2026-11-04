@@ -49,7 +49,8 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 'use strict';
 const $=id=>document.getElementById(id);
 let urn='',viewer=null,report=[],poll=0,lastPassword='',active=false,docRoot=null,docViewables=[],authorized=false,readyViewer=false,polling=false,checking=false,lastProgress='';
-const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+let pollStartedAt=0;
+
 const fmt=n=>n.toLocaleString('en-US');
 const say=(txt)=>{$('log').textContent=String(txt)};
 const state=(txt)=>{$('state').textContent=txt};
@@ -180,7 +181,7 @@ async function status(){
  try{
   const j=await api('status',null,'&urn='+encodeURIComponent(urn));
   const progress=String(j.progress||'');
-  const notes=Array.isArray(j.messages)&&j.messages.length?'\\nملاحظات Autodesk:\\n'+j.messages.join('\\n'):'';
+  const notes=Array.isArray(j.messages)&&j.messages.length?'\nملاحظات Autodesk:\n'+j.messages.join('\n'):'';
   const statusText=String(j.status||'pending').toLowerCase();
   state(statusText+(progress?' • '+progress:''));
   if(statusText==='success'){
@@ -193,7 +194,7 @@ async function status(){
     return true;
   }
   $('retry').disabled=false;
-  say('التحويل قيد المعالجة لدى Autodesk: '+statusText+(progress?' ('+progress+')':'')+notes+'\\nتحديث تلقائي كل 8 ثوانٍ؛ يمكنك إبقاء الصفحة مفتوحة.');
+  say('التحويل قيد المعالجة لدى Autodesk: '+statusText+(progress?' ('+progress+')':'')+notes+'\nتحديث تلقائي كل 8 ثوانٍ؛ يمكنك إبقاء الصفحة مفتوحة.');
   return false;
  }catch(e){
   stopPolling();
@@ -203,9 +204,10 @@ async function status(){
  }finally{checking=false}
 }
 async function beginPolling(){
- stopPolling();polling=true;
+ stopPolling();polling=true;pollStartedAt=Date.now();
  const cycle=async()=>{
   if(!polling||!urn)return;
+  if(Date.now()-pollStartedAt>10*60*1000){stopPolling();say('استمر التحويل أكثر من 10 دقائق دون اكتمال. قد تكون هناك مشكلة في خدمة Autodesk أو صيغة الملف. حاول تحديث الحالة لاحقًا.');return}
   const ended=await status();
   if(!ended&&polling){poll=setTimeout(cycle,8000)}
  };
@@ -213,7 +215,7 @@ async function beginPolling(){
 }
 $('retry').onclick=async()=>{await beginPolling()};
 $('upload').onclick=async()=>{
- if(active)return;const file=$('file').files[0],pw=$('password').value;
+ if(active)return;const file=$('file').files[0];
  if(!authorized)return say('فعّل الجهاز عبر تسجيل دخول المالك أولًا.');
  if(!file)return say('اختر ملفًا أولًا');
  if(file.size>100*1024*1024)return say('الحد الأقصى هو 100 MB');
@@ -233,7 +235,7 @@ $('upload').onclick=async()=>{
   }
   say('تأكيد الرفع وبدء التحويل…');
   const completed=await api('complete',{key:prepared.key,uploadKey:prepared.uploadKey});
-  urn=completed.urn;state('تم إرسال طلب التحويل');say('تم استلام الملف بنجاح. اضغط تحديث حالة التحويل للتحقق من النتيجة.');
+  urn=completed.urn;state('تم إرسال طلب التحويل');say('تم استلام الملف بنجاح. سيُفحص تقدم التحويل تلقائيًا.');
   $('retry').disabled=false;
   await beginPolling();
  }catch(e){state('خطأ');say(e.message+(String(e.message).includes('Failed to fetch')?'\nقد يكون السبب سياسة CORS للرفع المباشر. راجع إعدادات APS.':''))}
