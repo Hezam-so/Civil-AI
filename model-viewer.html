@@ -28,16 +28,16 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <div class="tag" style="margin-top:17px">MODEL EXPLORER / REAL FILES</div>
 <h1>قارئ وعارض ملفات DWG والمخططات الهندسية</h1>
 <p class="minor">افتح ملف AutoCAD DWG الأصلي، اعرض لوحات 2D والنماذج 3D المتاحة، اختر العناصر واقرأ خصائصها وطبقاتها. تستخدم المعاينة خدمة Autodesk APS؛ لا يقوم المتصفح بتحليل DWG الثنائي مباشرة.</p>
-<div class="card warn">الملف يُرفع إلى خدمات Autodesk السحابية للتحويل، وقد تُطبّق تكاليف استخدام واحتفاظ بالبيانات. لا ترفع مخططات سرية أو تخص عميلًا دون موافقته. هذا العارض لا يجري تحليل قوى أو تصميم إنشائي ولا يفتح Robot RTD مباشرة. قد يتطلب Civil 3D Object Enabler وقد لا تُترجم جميع الكائنات.</div>
+<div class="card warn">الملف يُرفع إلى خدمات Autodesk السحابية للتحويل، وقد تُطبّق تكاليف استخدام واحتفاظ بالبيانات. لا ترفع مخططات سرية أو تخص عميلًا دون موافقته. هذا العارض لا يجري تحليل قوى أو تصميم إنشائي ولا يفتح Robot RTD مباشرة. قد يتطلب Civil 3D Object Enabler وقد لا تُترجم جميع الكائنات. للحماية، يطلب الموقع تسجيل دخول المالك مرة واحدة على هذا الجهاز؛ لا يمكن إبقاء خدمة الرفع المدفوعة مفتوحة للجميع بدون مصادقة.</div>
 <div class="card">
 <div class="flex"><span id="configured" class="minor">جاري فحص الخادم…</span><a href="https://aps.autodesk.com/" target="_blank" rel="noopener noreferrer" class="minor">إنشاء حساب Autodesk APS</a></div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:13px">
-<div><label for="password">كلمة مرور مساحة العمل (تُحفظ في هذه الصفحة بالذاكرة فقط)</label><input id="password" type="password" autocomplete="off" placeholder="CIVIL_AI_VIEWER_PASSWORD"></div>
+<div id="ownerLogin"><label for="password">تفعيل الجهاز مرة واحدة (دخول المالك)</label><input id="password" type="password" autocomplete="off" placeholder="كلمة مرور المالك الخاصة بموقعك"><div class="flex" style="margin-top:8px"><button type="button" id="login" class="primary">تفعيل هذا الجهاز</button><button type="button" id="logout" style="display:none">تسجيل خروج الجهاز</button></div><div id="accessState" class="minor" aria-live="polite">جاري فحص جلسة الجهاز…</div></div>
 <div><label for="file">ملف CAD / BIM، حتى 100 MB</label><input id="file" type="file" accept=".dwg,.dxf,.rvt,.rfa,.ifc,.nwd,.nwc"></div>
 </div>
 <p class="minor" id="dwgInspection" aria-live="polite">اختر ملف DWG لقراءة ترويسة الصيغة والتحقق منها محليًا قبل الإرسال.</p>
-<div class="flex" style="margin-top:14px"><button id="upload" class="primary">رفع وتحويل وعرض النموذج</button><button id="retry" disabled>تحديث حالة التحويل</button><button id="properties" disabled>تقرير خصائص النموذج</button><button id="csv" disabled>تصدير CSV</button></div>
-<div class="minor" id="log" aria-live="polite" style="margin-top:10px">للبدء: أضف APS_CLIENT_ID وAPS_CLIENT_SECRET وكلمة مرور الخادم إلى Vercel.</div>
+<div class="flex" style="margin-top:14px"><button id="upload" class="primary" disabled>رفع وتحويل وعرض النموذج</button><button id="retry" disabled>تحديث حالة التحويل</button><button id="properties" disabled>تقرير خصائص النموذج</button><button id="csv" disabled>تصدير CSV</button></div>
+<div class="minor" id="log" aria-live="polite" style="margin-top:10px">سيتحقق العارض من حساب Autodesk ثم يبدأ تحويل الملف، ويحدّث الحالة تلقائيًا.</div>
 </div>
 <div class="card"><div class="stats"><div class="stat"><small>حالة التحويل</small><b id="state">غير مهيأ</b></div><div class="stat"><small>العناصر المفحوصة</small><b id="objectCount">—</b></div><div class="stat"><small>العناصر ذات الخصائص</small><b id="propertyCount">—</b></div><div class="stat"><small>الطبقات المكتشفة في العينة</small><b id="layerCount">—</b></div></div></div>
 <div class="layout">
@@ -48,21 +48,54 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
-let urn='',viewer=null,report=[],poll=0,lastPassword='',active=false,docRoot=null,docViewables=[];
+let urn='',viewer=null,report=[],poll=0,lastPassword='',active=false,docRoot=null,docViewables=[],authorized=false,readyViewer=false,polling=false,checking=false,lastProgress='';
+const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
 const fmt=n=>n.toLocaleString('en-US');
 const say=(txt)=>{$('log').textContent=String(txt)};
 const state=(txt)=>{$('state').textContent=txt};
 async function api(action,body=null,query=''){
- const pw=$('password').value;
- if(!pw)throw Error('أدخل كلمة المرور');
  const response=await fetch('/api/aps?action='+encodeURIComponent(action)+query,{
-  method:body?'POST':'GET',headers:{'x-civil-ai-password':pw,...(body?{'Content-Type':'application/json'}:{})},
+  method:body?'POST':'GET',
+  credentials:'same-origin',
+  headers:body?{'Content-Type':'application/json'}:{},
   ...(body?{body:JSON.stringify(body)}:{})
  });
  const data=await response.json().catch(()=>({error:'Invalid server response'}));
  if(!response.ok)throw Error(data.error||'HTTP '+response.status);
  return data;
 }
+function accessUI(value){
+ authorized=Boolean(value);
+ $('password').style.display=authorized?'none':'block';
+ const login=$('login'),logout=$('logout');
+ login.style.display=authorized?'none':'inline-flex';
+ logout.style.display=authorized?'inline-flex':'none';
+ $('accessState').textContent=authorized?'تم تفعيل الجهاز بشكل آمن. لن تحتاج إدخال كلمة المرور عند كل رفع.':'يلزم تفعيل جهازك مرة واحدة للوصول إلى خدمة Autodesk.';
+ $('upload').disabled=!authorized;
+}
+async function checkSession(){
+ try{const response=await fetch('/api/aps?action=session',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('تعذر التحقق من الجلسة');
+ const result=await response.json();accessUI(result.authenticated)}
+ catch(e){accessUI(false);$('accessState').textContent=e.message}
+}
+$('login').onclick=async()=>{
+ const pw=$('password').value;
+ if(!pw)return $('accessState').textContent='أدخل كلمة مرور المالك لأول مرة فقط.';
+ $('login').disabled=true;
+ try{
+ const response=await fetch('/api/aps?action=session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
+ const result=await response.json();
+ if(!response.ok)throw Error(result.error||'تعذر الدخول');
+ $('password').value='';accessUI(true);say('تم تفعيل الجهاز. اختر ملف DWG وابدأ التحويل.')
+ }catch(e){$('accessState').textContent=e.message}
+ finally{$('login').disabled=false}
+};
+$('logout').onclick=async()=>{
+ try{await fetch('/api/aps?action=session',{method:'DELETE',credentials:'same-origin'});}
+ finally{stopPolling();accessUI(false);say('تم تسجيل خروج الجهاز.')}
+};
+function stopPolling(){if(poll){clearTimeout(poll);poll=0}polling=false}
+
 const dwgRevisions={AC1009:'AutoCAD R12',AC1012:'AutoCAD R13',AC1014:'AutoCAD R14',AC1015:'AutoCAD 2000–2002',AC1018:'AutoCAD 2004–2006',AC1021:'AutoCAD 2007–2009',AC1024:'AutoCAD 2010–2012',AC1027:'AutoCAD 2013–2017',AC1032:'AutoCAD 2018 أو أحدث (حسب الإصدار)'};
 async function dwgHeader(file){
  const bytes=await file.slice(0,6).text(),valid=/^AC\d{4}$/.test(bytes);
@@ -89,20 +122,19 @@ function resetViewer(){
 }
 async function initViewer(){
  if(!window.Autodesk||!Autodesk.Viewing)throw Error('تعذر تحميل Autodesk Viewer SDK — تحقق من الاتصال أو حجب CDN');
- const p=$('password').value;
  await new Promise((resolve,reject)=>{
   Autodesk.Viewing.Initializer({
    env:'AutodeskProduction2',api:'streamingV2',
    getAccessToken: async callback=>{
     try{
-      // The token is short lived. Never store client secret in the browser.
-      const response=await fetch('/api/aps?action=viewer-token',{headers:{'x-civil-ai-password':p},cache:'no-store'});
+      // Short-lived viewer token. Secrets are never embedded in the page.
+      const response=await fetch('/api/aps?action=viewer-token',{credentials:'same-origin',cache:'no-store'});
       const result=await response.json();
       if(!response.ok)throw Error(result.error||'Token rejected');
       callback(result.access_token,result.expires_in);
     }catch(error){say('فشل مصادقة العارض: '+error.message)}
    }
-  },resolve);
+  },resolve,reject);
  });
  viewer=new Autodesk.Viewing.GuiViewer3D($('viewer'));
  const code=viewer.start();
@@ -143,26 +175,51 @@ async function loadModel(){
  });
 }
 async function status(){
- if(!urn)return;const j=await api('status',null,'&urn='+encodeURIComponent(urn));
- state(j.status+(j.progress?' • '+j.progress:''));
- if(j.status==='success'){
-  $('retry').disabled=true;
-  await loadModel();
- }else if(j.status==='failed'||j.status==='timeout'){
-  $('retry').disabled=false;say('فشل تحويل الملف. ربما يتطلب النموذج ملفات مرتبطة أو صيغة/نسخة مدعومة.');
- }else{
-  $('retry').disabled=false;say('التحويل جارٍ في Autodesk. اضغط «تحديث حالة التحويل» لاحقًا؛ لا تغلق الصفحة إذا أردت الاحتفاظ بالمرجع المؤقت.');
- }
+ if(!urn||checking)return false;
+ checking=true;
+ try{
+  const j=await api('status',null,'&urn='+encodeURIComponent(urn));
+  const progress=String(j.progress||'');
+  const notes=Array.isArray(j.messages)&&j.messages.length?'\\nملاحظات Autodesk:\\n'+j.messages.join('\\n'):'';
+  const statusText=String(j.status||'pending').toLowerCase();
+  state(statusText+(progress?' • '+progress:''));
+  if(statusText==='success'){
+    stopPolling();$('retry').disabled=true;say('اكتمل التحويل. جاري فتح الرسم والطبقات…');
+    await loadModel();return true;
+  }
+  if(statusText==='failed'||statusText==='timeout'){
+    stopPolling();$('retry').disabled=false;
+    say('فشل تحويل الملف في Autodesk. افحص نسخة DWG والمراجع الخارجية، وجرّب ملفًا صغيرًا. '+notes);
+    return true;
+  }
+  $('retry').disabled=false;
+  say('التحويل قيد المعالجة لدى Autodesk: '+statusText+(progress?' ('+progress+')':'')+notes+'\\nتحديث تلقائي كل 8 ثوانٍ؛ يمكنك إبقاء الصفحة مفتوحة.');
+  return false;
+ }catch(e){
+  stopPolling();
+  $('retry').disabled=false;
+  say('تعذر قراءة حالة التحويل: '+e.message+'\\nيمكنك المحاولة مجددًا عبر «تحديث حالة التحويل».');
+  return true;
+ }finally{checking=false}
 }
-$('retry').onclick=async()=>{try{await status()}catch(e){say(e.message)}};
+async function beginPolling(){
+ stopPolling();polling=true;
+ const cycle=async()=>{
+  if(!polling||!urn)return;
+  const ended=await status();
+  if(!ended&&polling){poll=setTimeout(cycle,8000)}
+ };
+ await cycle();
+}
+$('retry').onclick=async()=>{await beginPolling()};
 $('upload').onclick=async()=>{
  if(active)return;const file=$('file').files[0],pw=$('password').value;
- if(!pw)return say('أدخل كلمة المرور أولًا');
+ if(!authorized)return say('فعّل الجهاز عبر تسجيل دخول المالك أولًا.');
  if(!file)return say('اختر ملفًا أولًا');
  if(file.size>100*1024*1024)return say('الحد الأقصى هو 100 MB');
  if(/\.dwg$/i.test(file.name)){const signature=await dwgHeader(file);if(!signature.valid)return say('الملف يحمل امتداد DWG لكن ترويسته لا تتطابق مع صيغة AutoCAD DWG المعروفة. تحقق منه في AutoCAD قبل الرفع.');}
  if(!/\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/i.test(file.name))return say('امتداد غير مدعوم هنا. RTD يحتاج تصديرًا من Robot.');
- active=true;$('upload').disabled=true;$('retry').disabled=true;clearTimeout(poll);urn='';resetViewer();
+ active=true;$('upload').disabled=true;$('retry').disabled=true;stopPolling();urn='';resetViewer();
  try{
   state('جاري الرفع');say('طلب روابط الرفع الآمنة من Autodesk...');
   const prepared=await api('prepare',{name:file.name,size:file.size});
@@ -178,9 +235,9 @@ $('upload').onclick=async()=>{
   const completed=await api('complete',{key:prepared.key,uploadKey:prepared.uploadKey});
   urn=completed.urn;state('تم إرسال طلب التحويل');say('تم استلام الملف بنجاح. اضغط تحديث حالة التحويل للتحقق من النتيجة.');
   $('retry').disabled=false;
-  await status();
+  await beginPolling();
  }catch(e){state('خطأ');say(e.message+(String(e.message).includes('Failed to fetch')?'\nقد يكون السبب سياسة CORS للرفع المباشر. راجع إعدادات APS.':''))}
- finally{active=false;$('upload').disabled=false}
+ finally{active=false;$('upload').disabled=!authorized}
 };
 $('views').addEventListener('change',async()=>{
  if(!docRoot||!viewer)return;
@@ -241,5 +298,5 @@ $('csv').onclick=()=>{
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
  const a=document.createElement('a');a.href=url;a.download='Civil-AI-model-properties-sample.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
 };
-health();
+health();checkSession();
 </script></body></html>
