@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="ar" dir="rtl"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Civil AI | Professional CAD & BIM Viewer</title>
+<title>Civil AI | AutoCAD DWG Reader and BIM Viewer</title>
 <link rel="stylesheet" href="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/style.min.css">
 <script defer src="https://developer.api.autodesk.com/modelderivative/v2/viewers/7.*/viewer3D.min.js"></script>
 <style>
@@ -26,8 +26,8 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <div class="head"><div class="brand">CIVIL <span>AI</span> | BIM & CAD VIEWER <div class="minor">Autodesk Platform Services • Experimental Integration</div></div>
 <div class="flex"><a class="link" href="studio.html">↩ Civil AI Studio</a><a class="link" href="cad-viewer.html">DXF محلي</a></div></div>
 <div class="tag" style="margin-top:17px">MODEL EXPLORER / REAL FILES</div>
-<h1>عرض المخططات ونماذج الهندسة المدنية</h1>
-<p class="minor">استيراد DWG من AutoCAD وCivil 3D، وRVT من Revit، وIFC وغيرها؛ ثم معاينة 2D/3D واستخراج خصائص العناصر بعد التحويل بواسطة Autodesk.</p>
+<h1>قارئ وعارض ملفات DWG والمخططات الهندسية</h1>
+<p class="minor">افتح ملف AutoCAD DWG الأصلي، اعرض لوحات 2D والنماذج 3D المتاحة، اختر العناصر واقرأ خصائصها وطبقاتها. تستخدم المعاينة خدمة Autodesk APS؛ لا يقوم المتصفح بتحليل DWG الثنائي مباشرة.</p>
 <div class="card warn">الملف يُرفع إلى خدمات Autodesk السحابية للتحويل، وقد تُطبّق تكاليف استخدام واحتفاظ بالبيانات. لا ترفع مخططات سرية أو تخص عميلًا دون موافقته. هذا العارض لا يجري تحليل قوى أو تصميم إنشائي ولا يفتح Robot RTD مباشرة. قد يتطلب Civil 3D Object Enabler وقد لا تُترجم جميع الكائنات.</div>
 <div class="card">
 <div class="flex"><span id="configured" class="minor">جاري فحص الخادم…</span><a href="https://aps.autodesk.com/" target="_blank" rel="noopener noreferrer" class="minor">إنشاء حساب Autodesk APS</a></div>
@@ -35,19 +35,20 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <div><label for="password">كلمة مرور مساحة العمل (تُحفظ في هذه الصفحة بالذاكرة فقط)</label><input id="password" type="password" autocomplete="off" placeholder="CIVIL_AI_VIEWER_PASSWORD"></div>
 <div><label for="file">ملف CAD / BIM، حتى 100 MB</label><input id="file" type="file" accept=".dwg,.dxf,.rvt,.rfa,.ifc,.nwd,.nwc"></div>
 </div>
+<p class="minor" id="dwgInspection" aria-live="polite">اختر ملف DWG لقراءة ترويسة الصيغة والتحقق منها محليًا قبل الإرسال.</p>
 <div class="flex" style="margin-top:14px"><button id="upload" class="primary">رفع وتحويل وعرض النموذج</button><button id="retry" disabled>تحديث حالة التحويل</button><button id="properties" disabled>تقرير خصائص النموذج</button><button id="csv" disabled>تصدير CSV</button></div>
 <div class="minor" id="log" aria-live="polite" style="margin-top:10px">للبدء: أضف APS_CLIENT_ID وAPS_CLIENT_SECRET وكلمة مرور الخادم إلى Vercel.</div>
 </div>
-<div class="card"><div class="stats"><div class="stat"><small>حالة التحويل</small><b id="state">غير مهيأ</b></div><div class="stat"><small>العناصر المفحوصة</small><b id="objectCount">—</b></div><div class="stat"><small>العناصر ذات الخصائص</small><b id="propertyCount">—</b></div></div></div>
+<div class="card"><div class="stats"><div class="stat"><small>حالة التحويل</small><b id="state">غير مهيأ</b></div><div class="stat"><small>العناصر المفحوصة</small><b id="objectCount">—</b></div><div class="stat"><small>العناصر ذات الخصائص</small><b id="propertyCount">—</b></div><div class="stat"><small>الطبقات المكتشفة في العينة</small><b id="layerCount">—</b></div></div></div>
 <div class="layout">
-<div class="card"><h3>عارض المخطط / النموذج (2D & 3D)</h3><div id="viewer"></div><p class="minor">استخدم شجرة النموذج وخصائص العناصر في أدوات العارض. انقر على العنصر للحصول على معلوماته إن كانت متاحة في ملف المصدر.</p></div>
+<div class="card"><h3>عارض المخطط / النموذج (2D & 3D)</h3><div class="flex" style="margin-bottom:10px"><label for="views" class="minor">اللوحات والمناظير:</label><select id="views" disabled style="min-width:180px;max-width:100%;background:#0d2843;color:white;padding:9px;border:1px solid #3b6385;border-radius:8px"><option>يظهر بعد التحويل</option></select></div><div id="viewer"></div><p class="minor">استخدم شجرة النموذج وخصائص العناصر في أدوات العارض. انقر على العنصر للحصول على معلوماته إن كانت متاحة في ملف المصدر.</p></div>
 <div class="card"><h3>تقرير فحص بيانات النموذج</h3><p class="minor">ملخص استكشافي لأسماء العناصر وتصنيفاتها، مأخوذ من البيانات الوصفية المترجمة. ليس تحليلًا هندسيًا للكود.</p><div id="info">العارض لم يحمّل نموذجًا بعد.</div></div>
 </div>
 </div>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
-let urn='',viewer=null,report=[],poll=0,lastPassword='',active=false;
+let urn='',viewer=null,report=[],poll=0,lastPassword='',active=false,docRoot=null,docViewables=[];
 const fmt=n=>n.toLocaleString('en-US');
 const say=(txt)=>{$('log').textContent=String(txt)};
 const state=(txt)=>{$('state').textContent=txt};
@@ -62,6 +63,19 @@ async function api(action,body=null,query=''){
  if(!response.ok)throw Error(data.error||'HTTP '+response.status);
  return data;
 }
+const dwgRevisions={AC1009:'AutoCAD R12',AC1012:'AutoCAD R13',AC1014:'AutoCAD R14',AC1015:'AutoCAD 2000–2002',AC1018:'AutoCAD 2004–2006',AC1021:'AutoCAD 2007–2009',AC1024:'AutoCAD 2010–2012',AC1027:'AutoCAD 2013–2017',AC1032:'AutoCAD 2018 أو أحدث (حسب الإصدار)'};
+async function dwgHeader(file){
+ const bytes=await file.slice(0,6).text(),valid=/^AC\d{4}$/.test(bytes);
+ return {valid,signature:bytes,version:dwgRevisions[bytes]||'صيغة DWG غير محددة الإصدار'};
+}
+$('file').addEventListener('change',async()=>{
+ const f=$('file').files[0];if(!f){$('dwgInspection').textContent='اختر ملفًا للبدء';return}
+ if(!/\.dwg$/i.test(f.name)){$('dwgInspection').textContent='تم تحديد '+f.name+' — سيتم فحص الصيغة بواسطة APS بعد الرفع.';return}
+ try{
+  const h=await dwgHeader(f);
+  $('dwgInspection').textContent=h.valid?'تم التعرف على ترويسة DWG: '+h.signature+' · '+h.version+' · '+(f.size/1048576).toFixed(2)+' MB. التحقق من الترويسة لا يعني صلاحية محتوى الرسم بالكامل.':'تنبيه: لا تبدو ترويسة الملف صيغة DWG معروفة. قد يكون ملفًا تالفًا أو امتدادًا خاطئًا.';
+ }catch(e){$('dwgInspection').textContent='فشل فحص DWG محليًا: '+e.message}
+});
 async function health(){
  try{const r=await fetch('/api/aps?action=health',{cache:'no-store'});const j=await r.json();
  $('configured').textContent=j.configured?'الخادم مهيأ ✅ — يلزم إدخال كلمة المرور':'الخادم غير مهيأ: راجع إعدادات Vercel';
@@ -70,7 +84,8 @@ async function health(){
 function resetViewer(){
  if(viewer){try{viewer.finish()}catch{}viewer=null}
  $('properties').disabled=true;$('csv').disabled=true;report=[];
- $('objectCount').textContent='—';$('propertyCount').textContent='—';$('info').textContent='لا توجد بيانات بعد.';
+ $('objectCount').textContent='—';$('propertyCount').textContent='—';$('layerCount').textContent='—';$('info').textContent='لا توجد بيانات بعد.';
+ $('views').disabled=true;$('views').replaceChildren();docRoot=null;docViewables=[];
 }
 async function initViewer(){
  if(!window.Autodesk||!Autodesk.Viewing)throw Error('تعذر تحميل Autodesk Viewer SDK — تحقق من الاتصال أو حجب CDN');
@@ -106,9 +121,20 @@ async function loadModel(){
  return new Promise((resolve,reject)=>{
   Autodesk.Viewing.Document.load('urn:'+urn,async doc=>{
     try{
-     const node=doc.getRoot().getDefaultGeometry();
-     if(!node)throw Error('لم يتم العثور على صفحة أو نموذج قابل للعرض');
-     await viewer.loadDocumentNode(doc,node);
+     docRoot=doc;const root=doc.getRoot();
+     docViewables=root.search({type:'geometry'})||[];
+     if(!docViewables.length){const defaultNode=root.getDefaultGeometry();if(defaultNode)docViewables=[defaultNode]}
+     if(!docViewables.length)throw Error('لم يتم العثور على لوحة ثنائية الأبعاد أو نموذج ثلاثي الأبعاد قابل للعرض');
+     const selection=$('views');selection.replaceChildren();
+     docViewables.slice(0,120).forEach((viewable,i)=>{
+       const opt=document.createElement('option');opt.value=String(i);
+       opt.textContent=(viewable.data?.name||viewable.name?.()||'Sheet / Model '+(i+1))+' ('+(viewable.data?.role||'view')+')';
+       selection.append(opt);
+     });
+     selection.disabled=docViewables.length===1;
+     const first=docViewables.indexOf(root.getDefaultGeometry());
+     const selected=first>=0?first:0;selection.value=String(selected);
+     await viewer.loadDocumentNode(doc,docViewables[selected]);
      $('properties').disabled=false;
      state('قابل للعرض');say('تم تحميل النموذج. اضغط على أي عنصر لرؤية خصائصه، أو اطلب تقرير العناصر.');
      resolve();
@@ -134,6 +160,7 @@ $('upload').onclick=async()=>{
  if(!pw)return say('أدخل كلمة المرور أولًا');
  if(!file)return say('اختر ملفًا أولًا');
  if(file.size>100*1024*1024)return say('الحد الأقصى هو 100 MB');
+ if(/\.dwg$/i.test(file.name)){const signature=await dwgHeader(file);if(!signature.valid)return say('الملف يحمل امتداد DWG لكن ترويسته لا تتطابق مع صيغة AutoCAD DWG المعروفة. تحقق منه في AutoCAD قبل الرفع.');}
  if(!/\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/i.test(file.name))return say('امتداد غير مدعوم هنا. RTD يحتاج تصديرًا من Robot.');
  active=true;$('upload').disabled=true;$('retry').disabled=true;clearTimeout(poll);urn='';resetViewer();
  try{
@@ -155,6 +182,14 @@ $('upload').onclick=async()=>{
  }catch(e){state('خطأ');say(e.message+(String(e.message).includes('Failed to fetch')?'\nقد يكون السبب سياسة CORS للرفع المباشر. راجع إعدادات APS.':''))}
  finally{active=false;$('upload').disabled=false}
 };
+$('views').addEventListener('change',async()=>{
+ if(!docRoot||!viewer)return;
+ const node=docViewables[Number($('views').value)];if(!node)return;
+ try{say('جاري تبديل لوحة الرسم…');if(viewer.model)viewer.unloadModel(viewer.model);
+ await viewer.loadDocumentNode(docRoot,node);$('properties').disabled=false;
+ say('تم فتح اللوحة. اضغط على عنصر لقراءة خصائصه، أو استخرج تقرير الطبقات.') }
+ catch(e){say('تعذر تبديل اللوحة: '+e.message)}
+});
 function getTree(){
  return new Promise((resolve,reject)=>{
   viewer.getObjectTree(tree=>resolve(tree),()=>reject(Error('ملف النموذج لا يحتوي على شجرة عناصر قابلة للقراءة')));
@@ -179,17 +214,21 @@ $('properties').onclick=async()=>{
   report=[];
   for(let i=0;i<ids.length;i+=80){
    const block=await getBulk(ids.slice(i,i+80));
-   report.push(...block.map(x=>({
-    id:x.dbId,name:x.name||'',category:(x.properties||[]).find(p=>/category|family|type/i.test(p.displayName))?.displayValue||'غير محدد',
-    propertyCount:(x.properties||[]).length
-   })));
+   report.push(...block.map(x=>{
+    const props=x.properties||[];
+    const get=(pattern)=>String(props.find(p=>pattern.test(String(p.displayName||p.attributeName||'')))?.displayValue||'').slice(0,250);
+    return {id:x.dbId,name:x.name||'',category:get(/category|family|type|الفئة|النوع/i)||'غير محدد',layer:get(/^layer$|layer name|الطبقة|^层$/i)||'غير محدد',length:get(/^length$|^الطول$/i),area:get(/^area$|^المساحة$/i),propertyCount:props.length};
+   }));
   }
   $('objectCount').textContent=fmt(ids.length);
   $('propertyCount').textContent=fmt(report.filter(x=>x.propertyCount).length);
+  $('layerCount').textContent=fmt(new Set(report.filter(x=>x.layer!=='غير محدد').map(x=>x.layer)).size);
   const groups={};
   for(const item of report)groups[item.category]=(groups[item.category]||0)+1;
-  $('info').textContent='هذا تقرير لعينة تصل إلى 800 عنصر نهائي، وليس حصرًا شاملًا.\n'+
-   Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,50).map(([k,v])=>k+': '+v).join('\n');
+  const byLayer={};for(const item of report)byLayer[item.layer]=(byLayer[item.layer]||0)+1;
+  $('info').textContent='تقرير لعيّنة تصل إلى 800 عنصر نهائي، وليس حصرًا شاملًا لجميع عناصر DWG.\nالطبقات حسب عدد العناصر الظاهرة في العينة:\n'+
+   Object.entries(byLayer).sort((a,b)=>b[1]-a[1]).slice(0,70).map(([k,v])=>k+': '+v).join('\n')+'\n\nالتصنيفات:\n'+
+   Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,50).map(([k,v])=>k+': '+v).join('\n')+'\n\nقد تكون معلومات الطبقة/الطول/المساحة غير متوفرة في الملفات المحولة. لا تفترض وحدات أو دقة كميات من بيانات عرض فقط.';
   $('csv').disabled=!report.length;
   say('اكتمل استخراج خصائص العينة؛ هذه ليست نتائج تصميم إنشائي.');
  }catch(e){say('لم ينجح استخراج الخصائص: '+e.message)}
@@ -197,7 +236,7 @@ $('properties').onclick=async()=>{
 };
 $('csv').onclick=()=>{
  if(!report.length)return;
- const rows=[['dbId','name','category','propertyCount'],...report.map(v=>[v.id,v.name,v.category,v.propertyCount])];
+ const rows=[['dbId','name','layer','category','source_length','source_area','propertyCount'],...report.map(v=>[v.id,v.name,v.layer,v.category,v.length,v.area,v.propertyCount])];
  const csv='\uFEFF'+rows.map(r=>r.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n');
  const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
  const a=document.createElement('a');a.href=url;a.download='Civil-AI-model-properties-sample.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500);
