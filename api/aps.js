@@ -5,9 +5,9 @@ const { timingSafeEqual, randomUUID, createHmac, randomBytes } = require('node:c
 const BASE = 'https://developer.api.autodesk.com';
 const MB = 1024 * 1024;
 const CHUNK = 10 * MB;
-const MAX_FILE = 100 * MB;
+const MAX_FILE = 20 * MB; // Limited public preview to reduce abuse and cost
 const EXT = new Set(['dwg', 'dxf', 'rvt', 'rfa', 'ifc', 'nwd', 'nwc']);
-const validKey = /^civilai-[0-9a-f-]{36}\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/;
+const validKey = /^civilai-[a-f0-9]{32}-[0-9a-f-]{36}\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/;
 const COOKIE_NAME = 'civilai_aps_session';
 const SESSION_SECONDS = 60 * 60 * 24 * 30;
 function same(a, b) {
@@ -19,20 +19,17 @@ function sessionSignature(id, expiry) {
   const secret = process.env.CIVIL_AI_VIEWER_PASSWORD || '';
   return createHmac('sha256', secret).update('civilai-aps-session-v1:' + id + ':' + expiry).digest('hex');
 }
-function sessionCookie(req) {
+function sessionId(req) {
   const raw = String(req.headers.cookie || '').split(';').map(s => s.trim()).find(s => s.startsWith(COOKIE_NAME + '='));
-  if (!raw) return false;
+  if (!raw) return null;
   const token = raw.slice(COOKIE_NAME.length + 1);
   const match = /^([a-f0-9]{32})\.([0-9]{13})\.([a-f0-9]{64})$/.exec(token);
-  if (!match || !process.env.CIVIL_AI_VIEWER_PASSWORD || process.env.CIVIL_AI_VIEWER_PASSWORD.length < 12) return false;
+  if (!match || !process.env.CIVIL_AI_VIEWER_PASSWORD || process.env.CIVIL_AI_VIEWER_PASSWORD.length < 12) return null;
   const expiry = Number(match[2]);
-  if (!Number.isSafeInteger(expiry) || expiry <= Date.now() || expiry > Date.now() + SESSION_SECONDS * 1000 + 120000) return false;
-  return same(match[3], sessionSignature(match[1], match[2]));
+  if (!Number.isSafeInteger(expiry) || expiry <= Date.now() || expiry > Date.now() + SESSION_SECONDS * 1000 + 120000) return null;
+  return same(match[3], sessionSignature(match[1], match[2])) ? match[1] : null;
 }
-function auth(req) {
-  const secret = process.env.CIVIL_AI_VIEWER_PASSWORD;
-  return sessionCookie(req) || (typeof secret === 'string' && secret.length >= 12 && same(req.headers['x-civil-ai-password'], secret));
-}
+function auth(req) { return Boolean(sessionId(req)); }
 function cookieOptions(value, maxAge = SESSION_SECONDS) {
   return COOKIE_NAME + '=' + value + '; Path=/api/aps; HttpOnly; Secure; SameSite=Strict; Max-Age=' + maxAge;
 }
@@ -98,11 +95,11 @@ async function ensureBucket(access) {
   } catch (e) { if (e.status !== 409) throw e }
   return b;
 }
-function validateUrn(value) {
+function validateUrn(value, req) {
   if (typeof value !== 'string' || value.length > 1200 || !/^[A-Za-z0-9_-]+$/.test(value)) throw Error('Invalid model URN');
   let decoded;
   try { decoded = Buffer.from(value.replace(/-/g, '+').replace(/_/g, '/'), 'base64').toString('utf8') } catch {}
-  if (!decoded || !decoded.startsWith('urn:adsk.objects:os.object:' + bucket() + '/civilai-')) throw Error('Model does not belong to this workspace');
+  if (!decoded || !decoded.startsWith('urn:adsk.objects:os.object:' + bucket() + '/civilai-' + sessionId(req) + '-')) throw Error('Model does not belong to this browser session');
   return value;
 }
 module.exports = async function handler(req, res) {
@@ -115,23 +112,16 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ configured: Boolean(process.env.APS_CLIENT_ID && process.env.APS_CLIENT_SECRET && process.env.CIVIL_AI_VIEWER_PASSWORD?.length >= 12), supported: ['dwg','dxf','rvt','rfa','ifc','nwd','nwc'], robotRTD: false });
     }
     if (action === 'session' && req.method === 'GET') {
-      return res.status(200).json({ authenticated: sessionCookie(req) });
-    }
-    if (action === 'session' && req.method === 'POST') {
-      if (!originSafe(req)) return res.status(403).json({ error: 'Origin verification failed' });
-      const pw = parseBody(req).password;
-      if (typeof pw !== 'string' || !same(pw, process.env.CIVIL_AI_VIEWER_PASSWORD || '') || pw.length < 12) {
-        return res.status(401).json({ error: 'Invalid owner access key' });
+      if (!process.env.CIVIL_AI_VIEWER_PASSWORD || process.env.CIVIL_AI_VIEWER_PASSWORD.length < 12) return res.status(503).json({error:'Service is not configured'});
+      if (!sessionId(req)) {
+        const id = randomBytes(16).toString('hex'), expiry = String(Date.now() + SESSION_SECONDS * 1000);
+        res.setHeader('Set-Cookie', cookieOptions(id + '.' + expiry + '.' + sessionSignature(id, expiry)));
       }
-      const id = randomBytes(16).toString('hex'), expiry = String(Date.now() + SESSION_SECONDS * 1000);
-      res.setHeader('Set-Cookie', cookieOptions(id + '.' + expiry + '.' + sessionSignature(id, expiry)));
-      return res.status(200).json({ authenticated: true, deviceRememberedForDays: 30 });
+      return res.status(200).json({ ready: true, noPasswordRequired: true });
     }
-    if (action === 'session' && req.method === 'DELETE') {
-      if (!originSafe(req)) return res.status(403).json({ error: 'Origin verification failed' });
-      res.setHeader('Set-Cookie', cookieOptions('', 0));
-      return res.status(200).json({ authenticated: false });
-    }
+    // Browser sessions are issued automatically and are scoped to a single upload namespace.
+    // Neither password entry nor any public client secret is needed.
+    if (req.method === 'POST' && !originSafe(req)) return res.status(403).json({error:'Origin verification failed'});
     if (!auth(req)) return res.status(401).json({ error: 'Unauthorized. Sign in on this device first.' });
     if (action === 'viewer-token' && req.method === 'GET') {
       const t = await token(READER);
@@ -141,8 +131,8 @@ module.exports = async function handler(req, res) {
       const body = parseBody(req), name = String(body.name || '');
       const ext = name.split('.').pop().toLowerCase(), size = Number(body.size);
       if (!EXT.has(ext)) return res.status(400).json({ error: 'Unsupported format. Robot .RTD needs export from Robot.' });
-      if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_FILE) return res.status(400).json({ error: 'File size must be 1 byte to 100 MB' });
-      const key = 'civilai-' + randomUUID() + '.' + ext;
+      if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_FILE) return res.status(400).json({ error: 'File size must be 1 byte to 20 MB' });
+      const key = 'civilai-' + sessionId(req) + '-' + randomUUID() + '.' + ext;
       const parts = Math.ceil(size / CHUNK);
       const t = await token(WRITER);
       const b = await ensureBucket(t.access_token);
@@ -153,7 +143,7 @@ module.exports = async function handler(req, res) {
     }
     if (action === 'complete' && req.method === 'POST') {
       const body = parseBody(req), key = String(body.key || ''), uploadKey = String(body.uploadKey || '');
-      if (!validKey.test(key) || !uploadKey || uploadKey.length > 2000) return res.status(400).json({ error: 'Invalid upload session' });
+      if (!validKey.test(key) || !key.startsWith('civilai-' + sessionId(req) + '-') || !uploadKey || uploadKey.length > 2000) return res.status(400).json({ error: 'Invalid upload session' });
       const t = await token(WRITER), b = bucket();
       const finished = await aps('/oss/v2/buckets/' + b + '/objects/' + encodeURIComponent(key) + '/signeds3upload', t.access_token, 'POST', { uploadKey });
       const objectId = finished.objectId;
@@ -166,7 +156,7 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ urn, status: 'submitted' });
     }
     if (action === 'status' && req.method === 'GET') {
-      const urn = validateUrn(url.searchParams.get('urn'));
+      const urn = validateUrn(url.searchParams.get('urn'), req);
       const t = await token(READER);
       try {
         const manifest = await aps('/modelderivative/v2/designdata/' + encodeURIComponent(urn) + '/manifest', t.access_token);
@@ -195,7 +185,7 @@ module.exports = async function handler(req, res) {
       }
     }
     if (action === 'views' && req.method === 'GET') {
-      const urn = validateUrn(url.searchParams.get('urn'));
+      const urn = validateUrn(url.searchParams.get('urn'), req);
       const t = await token(READER);
       const data = await aps('/modelderivative/v2/designdata/' + encodeURIComponent(urn) + '/metadata', t.access_token);
       return res.status(200).json({ views: (data.data?.metadata || []).slice(0,100).map(v => ({ name:v.name, role:v.role, guid:v.guid })) });
