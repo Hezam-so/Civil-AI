@@ -28,12 +28,12 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <div class="tag" style="margin-top:17px">MODEL EXPLORER / REAL FILES</div>
 <h1>قارئ وعارض ملفات DWG والمخططات الهندسية</h1>
 <p class="minor">افتح ملف AutoCAD DWG الأصلي، اعرض لوحات 2D والنماذج 3D المتاحة، اختر العناصر واقرأ خصائصها وطبقاتها. تستخدم المعاينة خدمة Autodesk APS؛ لا يقوم المتصفح بتحليل DWG الثنائي مباشرة.</p>
-<div class="card warn">الملف يُرفع إلى خدمات Autodesk السحابية للتحويل، وقد تُطبّق تكاليف استخدام واحتفاظ بالبيانات. لا ترفع مخططات سرية أو تخص عميلًا دون موافقته. هذا العارض لا يجري تحليل قوى أو تصميم إنشائي ولا يفتح Robot RTD مباشرة. قد يتطلب Civil 3D Object Enabler وقد لا تُترجم جميع الكائنات. للحماية، يطلب الموقع تسجيل دخول المالك مرة واحدة على هذا الجهاز؛ لا يمكن إبقاء خدمة الرفع المدفوعة مفتوحة للجميع بدون مصادقة.</div>
+<div class="card warn">رفع مباشر بلا كلمة مرور. الملف يُرفع إلى خدمات Autodesk السحابية للتحويل، وقد تُطبّق تكاليف استخدام واحتفاظ بالبيانات. لا ترفع مخططات سرية أو تخص عميلًا دون موافقته. هذا العارض لا يجري تحليل قوى أو تصميم إنشائي ولا يفتح Robot RTD مباشرة. قد يتطلب Civil 3D Object Enabler وقد لا تُترجم جميع الكائنات. للحماية، يطلب الموقع تسجيل دخول المالك مرة واحدة على هذا الجهاز؛ لا يمكن إبقاء خدمة الرفع المدفوعة مفتوحة للجميع بدون مصادقة.</div>
 <div class="card">
 <div class="flex"><span id="configured" class="minor">جاري فحص الخادم…</span><a href="https://aps.autodesk.com/" target="_blank" rel="noopener noreferrer" class="minor">إنشاء حساب Autodesk APS</a></div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:13px">
-<div id="ownerLogin"><label for="password">تفعيل الجهاز مرة واحدة (دخول المالك)</label><input id="password" type="password" autocomplete="off" placeholder="كلمة مرور المالك الخاصة بموقعك"><div class="flex" style="margin-top:8px"><button type="button" id="login" class="primary">تفعيل هذا الجهاز</button><button type="button" id="logout" style="display:none">تسجيل خروج الجهاز</button></div><div id="accessState" class="minor" aria-live="polite">جاري فحص جلسة الجهاز…</div></div>
-<div><label for="file">ملف CAD / BIM، حتى 100 MB</label><input id="file" type="file" accept=".dwg,.dxf,.rvt,.rfa,.ifc,.nwd,.nwc"></div>
+<div><label>وصول تلقائي بلا كلمة مرور</label><div id="accessState" class="minor" aria-live="polite">جاري تهيئة الاتصال الآمن…</div></div>
+<div><label for="file">ملف CAD / BIM، حتى 20 MB</label><input id="file" type="file" accept=".dwg,.dxf,.rvt,.rfa,.ifc,.nwd,.nwc"></div>
 </div>
 <p class="minor" id="dwgInspection" aria-live="polite">اختر ملف DWG لقراءة ترويسة الصيغة والتحقق منها محليًا قبل الإرسال.</p>
 <div class="flex" style="margin-top:14px"><button id="upload" class="primary" disabled>رفع وتحويل وعرض النموذج</button><button id="retry" disabled>تحديث حالة التحويل</button><button id="properties" disabled>تقرير خصائص النموذج</button><button id="csv" disabled>تصدير CSV</button></div>
@@ -67,34 +67,19 @@ async function api(action,body=null,query=''){
 }
 function accessUI(value){
  authorized=Boolean(value);
- $('password').style.display=authorized?'none':'block';
- const login=$('login'),logout=$('logout');
- login.style.display=authorized?'none':'inline-flex';
- logout.style.display=authorized?'inline-flex':'none';
- $('accessState').textContent=authorized?'تم تفعيل الجهاز بشكل آمن. لن تحتاج إدخال كلمة المرور عند كل رفع.':'يلزم تفعيل جهازك مرة واحدة للوصول إلى خدمة Autodesk.';
+ $('accessState').textContent=authorized
+   ?'جاهز — يمكنك رفع الملف مباشرة دون كلمة مرور. يحمي النظام طلبات التحويل بحد استخدام آلي.'
+   :'تعذر تهيئة جلسة المتصفح؛ أعد تحميل الصفحة.';
  $('upload').disabled=!authorized;
 }
 async function checkSession(){
- try{const response=await fetch('/api/aps?action=session',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('تعذر التحقق من الجلسة');
- const result=await response.json();accessUI(result.authenticated)}
- catch(e){accessUI(false);$('accessState').textContent=e.message}
-}
-$('login').onclick=async()=>{
- const pw=$('password').value;
- if(!pw)return $('accessState').textContent='أدخل كلمة مرور المالك لأول مرة فقط.';
- $('login').disabled=true;
  try{
- const response=await fetch('/api/aps?action=session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
- const result=await response.json();
- if(!response.ok)throw Error(result.error||'تعذر الدخول');
- $('password').value='';accessUI(true);say('تم تفعيل الجهاز. اختر ملف DWG وابدأ التحويل.')
- }catch(e){$('accessState').textContent=e.message}
- finally{$('login').disabled=false}
-};
-$('logout').onclick=async()=>{
- try{await fetch('/api/aps?action=session',{method:'DELETE',credentials:'same-origin'});}
- finally{stopPolling();accessUI(false);say('تم تسجيل خروج الجهاز.')}
-};
+  const response=await fetch('/api/aps?action=session',{credentials:'same-origin',cache:'no-store'});
+  if(!response.ok)throw Error('خادم Autodesk لا يستجيب ('+response.status+')');
+  const result=await response.json();
+  accessUI(Boolean(result.ready));
+ }catch(e){accessUI(false);$('accessState').textContent=e.message}
+}
 function stopPolling(){if(poll){clearTimeout(poll);poll=0}polling=false}
 
 const dwgRevisions={AC1009:'AutoCAD R12',AC1012:'AutoCAD R13',AC1014:'AutoCAD R14',AC1015:'AutoCAD 2000–2002',AC1018:'AutoCAD 2004–2006',AC1021:'AutoCAD 2007–2009',AC1024:'AutoCAD 2010–2012',AC1027:'AutoCAD 2013–2017',AC1032:'AutoCAD 2018 أو أحدث (حسب الإصدار)'};
@@ -216,9 +201,9 @@ async function beginPolling(){
 $('retry').onclick=async()=>{await beginPolling()};
 $('upload').onclick=async()=>{
  if(active)return;const file=$('file').files[0];
- if(!authorized)return say('فعّل الجهاز عبر تسجيل دخول المالك أولًا.');
+ if(!authorized)return say('لم تتهيأ جلسة المتصفح؛ أعد تحميل الصفحة.');
  if(!file)return say('اختر ملفًا أولًا');
- if(file.size>100*1024*1024)return say('الحد الأقصى هو 100 MB');
+ if(file.size>20*1024*1024)return say('الحد الأقصى التجريبي هو 20 MB');
  if(/\.dwg$/i.test(file.name)){const signature=await dwgHeader(file);if(!signature.valid)return say('الملف يحمل امتداد DWG لكن ترويسته لا تتطابق مع صيغة AutoCAD DWG المعروفة. تحقق منه في AutoCAD قبل الرفع.');}
  if(!/\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/i.test(file.name))return say('امتداد غير مدعوم هنا. RTD يحتاج تصديرًا من Robot.');
  active=true;$('upload').disabled=true;$('retry').disabled=true;stopPolling();urn='';resetViewer();
