@@ -66,6 +66,7 @@ async function token(scopes) {
 }
 const WRITER = 'bucket:create bucket:read data:create data:read data:write viewables:read';
 const READER = 'data:read viewables:read';
+const VIEWER = 'viewables:read'; // Public browser may view derivatives, not read/list OSS objects.
 async function aps(path, access, method = 'GET', body, headers = {}) {
   const response = await fetch(BASE + path, {
     method,
@@ -124,7 +125,7 @@ module.exports = async function handler(req, res) {
     if (req.method === 'POST' && !originSafe(req)) return res.status(403).json({error:'Origin verification failed'});
     if (!auth(req)) return res.status(401).json({ error: 'Unauthorized. Sign in on this device first.' });
     if (action === 'viewer-token' && req.method === 'GET') {
-      const t = await token(READER);
+      const t = await token(VIEWER);
       return res.status(200).json({ access_token: t.access_token, expires_in: t.expires_in });
     }
     if (action === 'prepare' && req.method === 'POST') {
