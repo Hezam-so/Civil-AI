@@ -62,7 +62,8 @@ function parseNodeCSV(raw){
  const out=new Map();
  for(const [i,r] of records(raw).entries()){
   const id=pick(r,['id','node','nodeid','number','nodeno']);
-  const x=Number(pick(r,['x','coordx'])),y=Number(pick(r,['y','coordy'])),z=Number(pick(r,['z','coordz'])||0);
+  const rawX=pick(r,['x','coordx']),rawY=pick(r,['y','coordy']),rawZ=pick(r,['z','coordz']);
+  const x=rawX==null||rawX===''?NaN:Number(rawX),y=rawY==null||rawY===''?NaN:Number(rawY),z=rawZ==null||rawZ===''?0:Number(rawZ);
   if(!id||![x,y,z].every(Number.isFinite))throw Error('خطأ في صف عقدة '+(i+2)+'؛ تأكد من id,x,y,z');
   if(out.has(String(id)))throw Error('رقم عقدة متكرر: '+id);
   out.set(String(id),{x,y,z});
