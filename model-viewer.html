@@ -36,6 +36,11 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.stat{background:#08182d;border-radius:11px;border:1px solid #293f5d;padding:13px}.stat b{font-size:18px;display:block;color:var(--aqua)}.stat small{color:var(--muted)}
 #log{white-space:pre-wrap;overflow-wrap:anywhere;max-height:165px;overflow-y:auto}.hidden{display:none}
 @media(max-width:900px){.layout{grid-template-columns:1fr}.main{padding:11px}.card{padding:13px}#viewer{height:490px}.stats{grid-template-columns:1fr 1fr}}
+
+.engineer-contact{margin:22px auto 12px;padding:14px 16px;border:1px solid #315571;border-radius:13px;background:linear-gradient(120deg,#102d46,#10223b);display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;color:#eaf7ff;font:14px/1.7 system-ui,Segoe UI,Tahoma,Arial,sans-serif}
+.engineer-contact strong{font-size:16px;display:block}.engineer-contact .owner-label{font-size:12px;color:#a7cada}
+.engineer-contact a{display:inline-flex;align-items:center;justify-content:center;padding:9px 15px;border:1px solid #398faf;border-radius:9px;background:#1b4660;color:#eefcff;text-decoration:none;direction:ltr;font-weight:bold;white-space:nowrap}
+@media(max-width:600px){.engineer-contact a{width:100%}}
 </style></head>
 <body><div class="main">
 <div class="head"><div class="brand">CIVIL <span>AI</span> | BIM & CAD VIEWER <div class="minor">Autodesk Platform Services • Experimental Integration</div></div>
@@ -60,6 +65,7 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <div class="card"><h3>عارض المخطط / النموذج (2D & 3D)</h3><div class="flex" style="margin-bottom:10px"><label for="views" class="minor">اللوحات والمناظير:</label><select id="views" disabled style="min-width:180px;max-width:100%;background:#0d2843;color:white;padding:9px;border:1px solid #3b6385;border-radius:8px"><option>يظهر بعد التحويل</option></select></div><div id="viewer"><div id="viewerHint" style="padding:55px 20px;text-align:center;color:#9fbed7">ستظهر هنا لوحات DWG بعد اكتمال التحويل لدى Autodesk. يمكنك مغادرة الصفحة والعودة لاحقًا لمتابعة المهمة.</div></div><p class="minor">استخدم شجرة النموذج وخصائص العناصر في أدوات العارض. انقر على العنصر للحصول على معلوماته إن كانت متاحة في ملف المصدر.</p></div>
 <div class="card"><h3>تقرير مبسّط للمخطط — باللغة العربية</h3><p class="minor">شرح بلغة واضحة لكل من يريد فهم محتوى الرسم، مع إبقاء الأسماء الفنية الأصلية للتوثيق. الترجمات مبنية على أسماء العناصر والطبقات الموجودة في الملف، لا على رؤية أو تحليل هندسي آلي لمحتواه.</p><div id="selectionInfo" aria-live="polite"></div><div id="info" aria-live="polite">بعد فتح المخطط، اضغط «تقرير خصائص النموذج» لعرض شرح مبسّط لأسماء الطبقات والعناصر التي يمكن قراءتها.</div></div>
 </div>
+<footer class="engineer-contact" aria-label="بيانات التواصل مع مالك Civil AI"><div><span class="owner-label">للتواصل والاستفسارات</span><strong>المهندس حزام سليمان</strong></div><a href="tel:+967775264654" aria-label="الاتصال بالمهندس حزام سليمان على الرقم +967775264654">☎ +967775264654</a></footer>
 </div>
 <script>
 'use strict';
