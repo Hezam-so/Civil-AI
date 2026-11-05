@@ -4,8 +4,8 @@
 const { timingSafeEqual, randomUUID, createHmac, randomBytes } = require('node:crypto');
 const BASE = 'https://developer.api.autodesk.com';
 const MB = 1024 * 1024;
-const CHUNK = 10 * MB;
-const MAX_FILE = 100 * MB;
+const CHUNK = 25 * MB;
+const MAX_FILE = 500 * MB;
 const EXT = new Set(['dwg', 'dxf', 'rvt', 'rfa', 'ifc', 'nwd', 'nwc']);
 const validKey = /^civilai-[0-9a-f-]{36}\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/;
 const COOKIE_NAME = 'civilai_aps_session';
@@ -141,7 +141,7 @@ module.exports = async function handler(req, res) {
       const body = parseBody(req), name = String(body.name || '');
       const ext = name.split('.').pop().toLowerCase(), size = Number(body.size);
       if (!EXT.has(ext)) return res.status(400).json({ error: 'Unsupported format. Robot .RTD needs export from Robot.' });
-      if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_FILE) return res.status(400).json({ error: 'File size must be 1 byte to 100 MB' });
+      if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_FILE) return res.status(400).json({ error: 'File size must be 1 byte to 500 MB' });
       const key = 'civilai-' + randomUUID() + '.' + ext;
       const parts = Math.ceil(size / CHUNK);
       const t = await token(WRITER);
