@@ -16,7 +16,22 @@ button.primary{background:#187cbc;border-color:#2da6e0;font-weight:700}button:di
 input[type=password],input[type=text],input[type=file]{width:100%;background:#09182b;color:var(--text);border-radius:10px;border:1px solid #3b5470;padding:11px}
 label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display:flex;gap:9px;align-items:center;flex-wrap:wrap}.layout{display:grid;grid-template-columns:minmax(0,1fr) 335px;gap:14px}
 #viewer{height:650px;position:relative;background:#061221;border-radius:11px;overflow:hidden;border:1px solid #28405b}
-#info{max-height:410px;overflow:auto;overflow-wrap:anywhere;white-space:pre-wrap;background:#09182d;border-radius:10px;padding:12px;color:#d5e9f7;font:12px/1.6 ui-monospace,monospace}
+#info{overflow-wrap:anywhere;background:#09182d;border-radius:10px;padding:14px;color:#e1edfa;font:14px/1.9 system-ui,Segoe UI,Tahoma,Arial,sans-serif}
+.report-intro{padding:12px;background:#112d44;border:1px solid #31516a;border-radius:10px;margin-bottom:14px;line-height:1.85}
+.report-section{margin-top:16px;border-top:1px solid #27425e;padding-top:12px}
+.report-section h4{font-size:16px;color:#e7f7ff;margin:0 0 8px}
+.report-items{display:grid;gap:9px}
+.report-item{border:1px solid #2c4663;border-radius:10px;padding:10px 12px;background:#102239}
+.report-item strong{color:#70dce4;display:block;font-size:15px}
+.report-item p{margin:3px 0;font-size:13px;color:#c3d5e5}
+.report-original{color:#93adc7;font-size:12px;direction:auto;unicode-bidi:plaintext}
+.report-count{font-weight:700;color:#e7ecf7;white-space:nowrap}
+.report-numbers{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.report-numbers div{background:#142f49;border-radius:9px;padding:10px}
+.report-numbers b{display:block;font-size:21px;color:#6fdae8}
+.report-small{font-size:12px;color:#b8cbe0}
+#selectionInfo{background:#11283b;border:1px solid #2c5071;border-radius:10px;padding:12px;white-space:pre-wrap;overflow-wrap:anywhere;margin-bottom:12px}
+#selectionInfo:empty{display:none}
 .warn{background:#31271c;border-inline-start:3px solid #e8b264;padding:12px;border-radius:8px;color:#f0d4ac}
 .stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}.stat{background:#08182d;border-radius:11px;border:1px solid #293f5d;padding:13px}.stat b{font-size:18px;display:block;color:var(--aqua)}.stat small{color:var(--muted)}
 #log{white-space:pre-wrap;overflow-wrap:anywhere;max-height:165px;overflow-y:auto}.hidden{display:none}
@@ -36,14 +51,14 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <div><label for="file">ملف CAD / BIM، حتى 500 MB</label><input id="file" type="file" accept=".dwg,.dxf,.rvt,.rfa,.ifc,.nwd,.nwc"></div>
 </div>
 <p class="minor" id="dwgInspection" aria-live="polite">اختر ملف DWG لقراءة ترويسة الصيغة والتحقق منها محليًا قبل الإرسال.</p>
-<div class="flex" style="margin-top:14px"><button id="upload" class="primary" disabled>رفع وتحويل وعرض النموذج</button><button id="retry" disabled>تحديث حالة التحويل</button><button id="properties" disabled>تقرير خصائص النموذج</button><button id="csv" disabled>تصدير CSV</button></div>
+<div class="flex" style="margin-top:14px"><button id="upload" class="primary" disabled>رفع وتحويل وعرض النموذج</button><button id="retry" disabled>تحديث حالة التحويل</button><button id="properties" disabled>استخراج التقرير المبسّط</button><button id="csv" disabled>تصدير بيانات CSV</button></div>
 <div class="flex" style="margin-top:12px"><button id="diagnose" type="button">فحص اتصال Autodesk</button></div>
 <div class="minor" id="log" aria-live="polite" style="margin-top:10px">سيتحقق العارض من حساب Autodesk ثم يبدأ تحويل الملف، ويحدّث الحالة تلقائيًا.</div>
 </div>
 <div class="card"><div class="stats"><div class="stat"><small>حالة التحويل</small><b id="state">غير مهيأ</b><small id="elapsed">—</small></div><div class="stat"><small>العناصر المفحوصة</small><b id="objectCount">—</b></div><div class="stat"><small>العناصر ذات الخصائص</small><b id="propertyCount">—</b></div><div class="stat"><small>الطبقات المكتشفة في العينة</small><b id="layerCount">—</b></div></div></div>
 <div class="layout">
 <div class="card"><h3>عارض المخطط / النموذج (2D & 3D)</h3><div class="flex" style="margin-bottom:10px"><label for="views" class="minor">اللوحات والمناظير:</label><select id="views" disabled style="min-width:180px;max-width:100%;background:#0d2843;color:white;padding:9px;border:1px solid #3b6385;border-radius:8px"><option>يظهر بعد التحويل</option></select></div><div id="viewer"><div id="viewerHint" style="padding:55px 20px;text-align:center;color:#9fbed7">ستظهر هنا لوحات DWG بعد اكتمال التحويل لدى Autodesk. يمكنك مغادرة الصفحة والعودة لاحقًا لمتابعة المهمة.</div></div><p class="minor">استخدم شجرة النموذج وخصائص العناصر في أدوات العارض. انقر على العنصر للحصول على معلوماته إن كانت متاحة في ملف المصدر.</p></div>
-<div class="card"><h3>تقرير فحص بيانات النموذج</h3><p class="minor">ملخص استكشافي لأسماء العناصر وتصنيفاتها، مأخوذ من البيانات الوصفية المترجمة. ليس تحليلًا هندسيًا للكود.</p><div id="info">العارض لم يحمّل نموذجًا بعد.</div></div>
+<div class="card"><h3>تقرير مبسّط للمخطط — باللغة العربية</h3><p class="minor">شرح بلغة واضحة لكل من يريد فهم محتوى الرسم، مع إبقاء الأسماء الفنية الأصلية للتوثيق. الترجمات مبنية على أسماء العناصر والطبقات الموجودة في الملف، لا على رؤية أو تحليل هندسي آلي لمحتواه.</p><div id="selectionInfo" aria-live="polite"></div><div id="info" aria-live="polite">بعد فتح المخطط، اضغط «تقرير خصائص النموذج» لعرض شرح مبسّط لأسماء الطبقات والعناصر التي يمكن قراءتها.</div></div>
 </div>
 </div>
 <script>
@@ -141,7 +156,7 @@ async function health(){
 function resetViewer(){
  if(viewer){try{viewer.finish()}catch{}viewer=null}
  $('properties').disabled=true;$('csv').disabled=true;report=[];
- $('objectCount').textContent='—';$('propertyCount').textContent='—';$('layerCount').textContent='—';$('info').textContent='لا توجد بيانات بعد.';
+ $('objectCount').textContent='—';$('propertyCount').textContent='—';$('layerCount').textContent='—';$('info').textContent='افتح مخططًا ثم اضغط «استخراج التقرير المبسّط» لعرض شرح باللغة العربية.';$('selectionInfo').textContent='';
  $('views').disabled=true;$('views').replaceChildren();docRoot=null;docViewables=[];
 }
 async function initViewer(){
@@ -168,8 +183,12 @@ async function initViewer(){
   const ids=viewer.getSelection();
   if(!ids.length)return;
   viewer.getProperties(ids[0],data=>{
-   const details=(data.properties||[]).slice(0,50).map(p=>p.displayName+': '+p.displayValue);
-   $('info').textContent='العنصر المختار: '+data.name+'\n'+details.join('\n');
+   const name=explainCivilName(data.name);
+   const details=(data.properties||[]).slice(0,12).map(p=>translatePropertyName(p.displayName)+': '+String(p.displayValue??'غير متاح'));
+   $('selectionInfo').textContent='العنصر الذي اخترته: '+name.ar+
+     '\nالاسم الأصلي في الملف: '+String(data.name||'غير متوفر')+
+     '\n'+(name.known?name.explanation:'لم نتمكن من تحديد وظيفة هذا العنصر من اسمه وحده.')+
+     (details.length?'\n\nخصائص مسجلة في المخطط:\n'+details.join('\n'):'\nلا توجد خصائص نصية متاحة لهذا العنصر.');
   },()=>{});
  });
 }
@@ -312,6 +331,115 @@ function getBulk(ids){
   viewer.model.getBulkProperties(ids,{},data=>resolve(data),reject);
  });
 }
+
+// Glossary for cautiously explaining the labels actually found in Autodesk model metadata.
+// No geometry or structural safety claims are inferred from label names.
+const civilTerms=[
+ {re:/(?:^|[^a-z])(?:walls?|a[-_ ]?wall)(?:$|[^a-z])|جدران|جدار|حوائط/i,ar:'الجدران والحوائط',ex:'قد تكون رسومات لجدران تفصل المساحات داخل المبنى أو تحيط به.'},
+ {re:/(?:^|[^a-z])(?:doors?|a[-_ ]?door)(?:$|[^a-z])|أبواب|باب/i,ar:'الأبواب',ex:'قد يضم هذا الاسم مواقع الأبواب أو رموز فتحاتها.'},
+ {re:/(?:^|[^a-z])(?:windows?|glazing|a[-_ ]?wind)(?:$|[^a-z])|نوافذ|نافذة|شبابيك/i,ar:'النوافذ والزجاج',ex:'قد يمثل فتحات النوافذ أو أجزاء زجاجية في الواجهات.'},
+ {re:/(?:^|[^a-z])(?:columns?|pillars?|s[-_ ]?col)(?:$|[^a-z])|أعمدة|عمود/i,ar:'الأعمدة',ex:'قد يشير إلى أماكن الأعمدة التي تستند إليها أجزاء من المبنى.'},
+ {re:/(?:^|[^a-z])(?:beams?|girders?)(?:$|[^a-z])|كمرات|كمره|كمرة|جسور/i,ar:'الكمرات والجسور',ex:'قد يحدد عناصر أفقية تسند أجزاءً من المبنى، إن كانت أسماء الرسم صحيحة.'},
+ {re:/(?:^|[^a-z])(?:slabs?)(?:$|[^a-z])|بلاطات|بلاطة/i,ar:'البلاطات',ex:'قد يخص البلاطات الأفقية مثل الأسقف والأرضيات الإنشائية.'},
+ {re:/(?:^|[^a-z])(?:footings?|foundations?|piles?)(?:$|[^a-z])|قواعد|أساسات|أساس/i,ar:'القواعد والأساسات',ex:'قد يتعلق بالعناصر التي تنقل أحمال المبنى إلى الأرض.'},
+ {re:/(?:^|[^a-z])(?:stairs?|staircases?|steps?)(?:$|[^a-z])|سلالم|درج/i,ar:'السلالم والدرج',ex:'قد يوضح السلالم المستخدمة للانتقال بين المستويات.'},
+ {re:/(?:^|[^a-z])(?:roofs?)(?:$|[^a-z])|أسقف|سقف/i,ar:'الأسقف',ex:'قد يوضح مناطق سقف المبنى أو الغطاء العلوي.'},
+ {re:/(?:^|[^a-z])(?:rooms?|spaces?)(?:$|[^a-z])|غرف|غرفة|فراغات/i,ar:'الغرف والمساحات الداخلية',ex:'قد يحتوي على مسميات الغرف أو توزيع المساحات داخل المشروع.'},
+ {re:/(?:^|[^a-z])(?:floors?|levels?|storeys?|stories?)(?:$|[^a-z])|طوابق|دور|منسوب/i,ar:'الطوابق والمناسيب',ex:'قد يشير إلى مستويات البناء أو أسماء الأدوار.'},
+ {re:/(?:^|[^a-z])(?:roads?|streets?|pavements?)(?:$|[^a-z])|طرق|شارع|رصف/i,ar:'الطرق والرصف',ex:'قد يمثل طرقًا أو ممرات خارجية أو تفاصيل رصف.'},
+ {re:/(?:^|[^a-z])(?:pipes?|drains?|sewers?|plumbing)(?:$|[^a-z])|أنابيب|مواسير|صرف/i,ar:'الأنابيب وشبكات الصرف',ex:'قد يعرض مسارات الأنابيب أو قنوات تصريف المياه.'},
+ {re:/(?:^|[^a-z])(?:electrical|lighting|lights?|power|cables?)(?:$|[^a-z])|كهرباء|إنارة|إضاءة/i,ar:'الكهرباء والإنارة',ex:'قد يحتوي على نقاط الإنارة أو مسارات الأسلاك والتوصيلات.'},
+ {re:/(?:^|[^a-z])(?:hvac|ducts?|ventilation|mechanical)(?:$|[^a-z])|تكييف|تهوية/i,ar:'التهوية والتكييف',ex:'قد يتضمن مجاري الهواء أو تجهيزات التكييف والتهوية.'},
+ {re:/(?:^|[^a-z])(?:furniture|fixtures?)(?:$|[^a-z])|أثاث|مفروشات/i,ar:'الأثاث والتجهيزات',ex:'قد يعرض قطع أثاث أو تجهيزات موضحة لأغراض التصميم.'},
+ {re:/(?:^|[^a-z])(?:dimensions?|dim)(?:$|[^a-z])|أبعاد|قياسات/i,ar:'الأبعاد والقياسات المكتوبة',ex:'هذه عادةً أرقام وخطوط توضح مقاسات على الرسم، وليست عناصر إنشائية.'},
+ {re:/(?:^|[^a-z])(?:annotations?|texts?|notes?|labels?)(?:$|[^a-z])|نصوص|ملاحظات|تسميات/i,ar:'النصوص والملاحظات',ex:'كتابات توضيحية أضافها معدّ المخطط لشرح أجزاء منه.'},
+ {re:/(?:^|[^a-z])(?:hatches?|patterns?)(?:$|[^a-z])|تهشير|تهشيرات/i,ar:'التهشير والأنماط',ex:'رسومات متكررة قد تُستخدم للدلالة على مواد أو مناطق أو أسطح.'},
+ {re:/(?:^|[^a-z])(?:grids?|axes)(?:$|[^a-z])|محاور|شبكة/i,ar:'محاور الرسم',ex:'خطوط مرجعية تساعد على تحديد المواقع داخل المخطط.'},
+ {re:/(?:^|[^a-z])(?:lines?|polylines?|arcs?|circles?)(?:$|[^a-z])|خطوط|أقواس|دوائر/i,ar:'خطوط وأشكال مرسومة',ex:'عناصر هندسية مرسومة؛ لا تعني وحدها وجود جدار أو عمود أو باب.'},
+ {re:/(?:^|[^a-z])(?:blocks?|inserts?)(?:$|[^a-z])|بلوكات|كتل/i,ar:'رموز أو مجموعات رسومية',ex:'مجموعة خطوط وأشكال جُمعت لتسهيل تكرار رسمها، وقد تمثل أي مكوّن.'},
+ {re:/(?:^|[^a-z])(?:contours?|surveys?|topography|terrain)(?:$|[^a-z])|كنتور|مساحة أرض|تضاريس/i,ar:'المساحة والتضاريس',ex:'قد يتعلق بحدود الأرض أو مناسيبها أو وصف سطحها.'},
+ {re:/(?:^|[^a-z])(?:sections?|elevations?|details?)(?:$|[^a-z])|قطاعات|واجهات|تفاصيل/i,ar:'الواجهات والقطاعات والتفاصيل',ex:'رسومات إضافية تشرح شكل المبنى من اتجاهات أو مقاطع مختلفة.'}
+];
+function explainCivilName(raw){
+ const name=String(raw??'').trim().slice(0,180);
+ if(!name||name==='غير محدد'||name==='undefined'||name==='null')return {known:false,ar:'غير معروف',explanation:'لا يوجد اسم كافٍ لشرح هذا العنصر.'};
+ for(const item of civilTerms)if(item.re.test(name))return {known:true,ar:item.ar,explanation:item.ex};
+ return {known:false,ar:'تسمية فنية غير مصنفة',explanation:'لم نستطع معرفة وظيفة هذه التسمية من اسمها وحده. يمكن مراجعتها داخل الرسم.'};
+}
+function translatePropertyName(raw){
+ const k=String(raw??'').trim(),t=k.toLowerCase().replace(/[_-]+/g,' ');
+ const dictionary=[
+ [/^(layer|layer name|الطبقة)$/,'الطبقة'],
+ [/^(category|الفئة|التصنيف)$/,'التصنيف'],
+ [/^(family|العائلة)$/,'عائلة العنصر'],
+ [/^(type|type name|النوع)$/,'نوع العنصر'],
+ [/^(name|الاسم)$/,'اسم العنصر'],
+ [/^(length|الطول)$/,'الطول كما ورد في الملف'],
+ [/^(area|المساحة)$/,'المساحة كما وردت في الملف'],
+ [/^(height|الارتفاع)$/,'الارتفاع كما ورد في الملف'],
+ [/^(width|العرض)$/,'العرض كما ورد في الملف'],
+ [/^(volume|الحجم)$/,'الحجم كما ورد في الملف'],
+ [/^(material|مادة|المادة)$/,'المادة'],
+ [/^(level|floor|المنسوب)$/,'المستوى'],
+ [/^(id|element id|dbid)$/,'معرّف العنصر']
+ ];
+ for(const pair of dictionary)if(pair[0].test(t))return pair[1];
+ return k||'خاصية غير معروفة';
+}
+function reportElement(tag,className,textValue){
+ const e=document.createElement(tag);
+ if(className)e.className=className;
+ if(textValue!==undefined)e.textContent=String(textValue);
+ return e;
+}
+function reportSection(parent,title,subtitle,entries,limit){
+ const section=reportElement('section','report-section');
+ section.append(reportElement('h4','',title));
+ section.append(reportElement('p','report-small',subtitle));
+ const entriesBox=reportElement('div','report-items');
+ const sorted=Object.entries(entries).sort((a,b)=>b[1]-a[1]);
+ if(!sorted.length)entriesBox.append(reportElement('p','report-small','لم يُعثر على بيانات قابلة للعرض في هذا القسم.'));
+ for(const [raw,count] of sorted.slice(0,limit)){
+   const translated=explainCivilName(raw);
+   const item=reportElement('article','report-item');
+   item.append(reportElement('strong','',translated.ar+' — '+fmt(count)+' سجل رسم'));
+   item.append(reportElement('p','',translated.explanation));
+   item.append(reportElement('div','report-original','الاسم الأصلي في المخطط: '+raw));
+   if(!translated.known)item.append(reportElement('p','report-small','يلزم الرجوع إلى المخطط لمعرفة وظيفته بدقة.'));
+   entriesBox.append(item);
+ }
+ section.append(entriesBox);
+ if(sorted.length>limit)section.append(reportElement('p','report-small','تم عرض أكثر '+limit+' أسماء تكرارًا من أصل '+sorted.length+' اسمًا؛ بقية السجلات متاحة في CSV.'));
+ parent.append(section);
+}
+function renderPlainModelReport(groups,layers){
+ const host=$('info');host.replaceChildren();
+ const title=reportElement('div','report-intro');
+ title.append(reportElement('strong','','ماذا يمكن أن نفهم من هذا المخطط؟'));
+ title.append(reportElement('p','','تمت قراءة معلومات وصفية لأجزاء من الرسم. النتائج أدناه تشرح أسماء الطبقات والعناصر بلغة مبسطة. وهي لا تُثبت أن كل اسم يمثل قطعة حقيقية منفصلة في المبنى.'));
+ host.append(title);
+ const records=report.length,withDetails=report.filter(x=>x.propertyCount>0).length;
+ const uniqueLayers=new Set(report.filter(x=>x.layer!=='غير محدد').map(x=>x.layer)).size;
+ const numbers=reportElement('div','report-numbers');
+ for(const [val,label] of [[fmt(records),'سجل رسم في العينة'],[fmt(withDetails),'سجل له بيانات إضافية'],[fmt(uniqueLayers),'اسم طبقة معروف'],[fmt(Object.keys(groups).length),'تصنيف مذكور في البيانات']]){
+   const tile=reportElement('div','');tile.append(reportElement('b','',val));tile.append(reportElement('span','report-small',label));numbers.append(tile);
+ }
+ host.append(numbers);
+ reportSection(host,'أولًا: طبقات الرسم','الطبقة هي مجموعة رسومات تحمل اسمًا واحدًا، مثل الأبواب أو الجدران أو الأبعاد. عدد السجلات داخل الطبقة ليس بالضرورة عدد الأشياء الحقيقية.',layers,12);
+ reportSection(host,'ثانيًا: أنواع العناصر','هذه التصنيفات مأخوذة من أسماء العناصر التي قدمها ملف الرسم. بعض الأسماء عامة أو غير واضحة، لذلك لا نفسرها وكأنها حقيقة مؤكدة.',groups,10);
+ const notice=reportElement('section','report-section');
+ notice.append(reportElement('h4','','معلومات مهمّة قبل الاعتماد على النتائج'));
+ const cautions=[
+   'تم فحص عينة بحد أقصى 800 عنصر مرسوم؛ هذه ليست قائمة كاملة بمكونات المشروع.',
+   'العدّ هنا للسجلات الرسومية وليس لحصر الكميات أو حساب عدد الغرف والأبواب والجدران الفعلية.',
+   'قد يكون اسم الطبقة أو العنصر بالإنجليزية أو اختصارًا خاصًا بالمكتب؛ نترجم الأسماء الواضحة فقط، وما لم يتضح نتركه مع الاسم الأصلي.',
+   'لا نحول الأطوال أو المساحات إلى متر أو متر مربع إذا لم تؤكد بيانات الرسم وحدة القياس.',
+   'هذا شرح لفهم الرسم، وليس تقرير سلامة إنشائية أو موافقة على التصميم أو كشف كميات معتمد.'
+ ];
+ const ul=reportElement('ul','');for(const sentence of cautions)ul.append(reportElement('li','',sentence));notice.append(ul);
+ host.append(notice);
+}
+
 $('properties').onclick=async()=>{
  if(!viewer||!viewer.model)return;
  $('properties').disabled=true;
@@ -337,9 +465,7 @@ $('properties').onclick=async()=>{
   const groups={};
   for(const item of report)groups[item.category]=(groups[item.category]||0)+1;
   const byLayer={};for(const item of report)byLayer[item.layer]=(byLayer[item.layer]||0)+1;
-  $('info').textContent='تقرير لعيّنة تصل إلى 800 عنصر نهائي، وليس حصرًا شاملًا لجميع عناصر DWG.\nالطبقات حسب عدد العناصر الظاهرة في العينة:\n'+
-   Object.entries(byLayer).sort((a,b)=>b[1]-a[1]).slice(0,70).map(([k,v])=>k+': '+v).join('\n')+'\n\nالتصنيفات:\n'+
-   Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,50).map(([k,v])=>k+': '+v).join('\n')+'\n\nقد تكون معلومات الطبقة/الطول/المساحة غير متوفرة في الملفات المحولة. لا تفترض وحدات أو دقة كميات من بيانات عرض فقط.';
+  renderPlainModelReport(groups,byLayer);
   $('csv').disabled=!report.length;
   say('اكتمل استخراج خصائص العينة؛ هذه ليست نتائج تصميم إنشائي.');
  }catch(e){say('لم ينجح استخراج الخصائص: '+e.message)}
