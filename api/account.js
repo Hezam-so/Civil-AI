@@ -4,6 +4,19 @@ const {put,get,list,del}=require('@vercel/blob');
 const COOKIE='civilai_user_session';
 const TTL=14*86400;
 const maxBytes=120000;
+const attempts=new Map();
+function permitAttempt(req,action){
+ const ip=String(req.headers['x-real-ip']||req.headers['x-forwarded-for']||'unknown').split(',')[0].trim().slice(0,65);
+ const key=action+':'+ip,now=Date.now(),entry=attempts.get(key);
+ const ceiling=action==='register'?5:12;
+ if(entry&&entry.end>now){
+  if(entry.count>=ceiling)return false;
+  entry.count++;return true;
+ }
+ attempts.set(key,{count:1,end:now+10*60*1000});
+ if(attempts.size>5000)attempts.clear();
+ return true;
+}
 const readJson=async(path)=>{
  const b=await get(path,{access:'private'});
  if(!b||!b.stream)return null;
@@ -63,6 +76,7 @@ module.exports=async function(req,res){
  const b=parse(req);
  if(action==='logout'){clearCookie(res);return res.status(200).json({authenticated:false})}
  if(action!=='register'&&action!=='login')return invalid(res,404,'Unknown action');
+ if(!permitAttempt(req,action))return invalid(res,429,'محاولات كثيرة. جرّب بعد عشر دقائق.');
  const email=normEmail(b.email),password=String(b.password||'');
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||password.length<12||password.length>128)return invalid(res,400,'أدخل بريدًا صحيحًا وكلمة مرور من 12 إلى 128 حرفًا.');
  const id=toId(email),path='civilai/users/'+id+'.json';
