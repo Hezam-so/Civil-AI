@@ -40,9 +40,9 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <div class="flex" style="margin-top:12px"><button id="diagnose" type="button">فحص اتصال Autodesk</button></div>
 <div class="minor" id="log" aria-live="polite" style="margin-top:10px">سيتحقق العارض من حساب Autodesk ثم يبدأ تحويل الملف، ويحدّث الحالة تلقائيًا.</div>
 </div>
-<div class="card"><div class="stats"><div class="stat"><small>حالة التحويل</small><b id="state">غير مهيأ</b></div><div class="stat"><small>العناصر المفحوصة</small><b id="objectCount">—</b></div><div class="stat"><small>العناصر ذات الخصائص</small><b id="propertyCount">—</b></div><div class="stat"><small>الطبقات المكتشفة في العينة</small><b id="layerCount">—</b></div></div></div>
+<div class="card"><div class="stats"><div class="stat"><small>حالة التحويل</small><b id="state">غير مهيأ</b><small id="elapsed">—</small></div><div class="stat"><small>العناصر المفحوصة</small><b id="objectCount">—</b></div><div class="stat"><small>العناصر ذات الخصائص</small><b id="propertyCount">—</b></div><div class="stat"><small>الطبقات المكتشفة في العينة</small><b id="layerCount">—</b></div></div></div>
 <div class="layout">
-<div class="card"><h3>عارض المخطط / النموذج (2D & 3D)</h3><div class="flex" style="margin-bottom:10px"><label for="views" class="minor">اللوحات والمناظير:</label><select id="views" disabled style="min-width:180px;max-width:100%;background:#0d2843;color:white;padding:9px;border:1px solid #3b6385;border-radius:8px"><option>يظهر بعد التحويل</option></select></div><div id="viewer"></div><p class="minor">استخدم شجرة النموذج وخصائص العناصر في أدوات العارض. انقر على العنصر للحصول على معلوماته إن كانت متاحة في ملف المصدر.</p></div>
+<div class="card"><h3>عارض المخطط / النموذج (2D & 3D)</h3><div class="flex" style="margin-bottom:10px"><label for="views" class="minor">اللوحات والمناظير:</label><select id="views" disabled style="min-width:180px;max-width:100%;background:#0d2843;color:white;padding:9px;border:1px solid #3b6385;border-radius:8px"><option>يظهر بعد التحويل</option></select></div><div id="viewer"><div id="viewerHint" style="padding:55px 20px;text-align:center;color:#9fbed7">ستظهر هنا لوحات DWG بعد اكتمال التحويل لدى Autodesk. يمكنك مغادرة الصفحة والعودة لاحقًا لمتابعة المهمة.</div></div><p class="minor">استخدم شجرة النموذج وخصائص العناصر في أدوات العارض. انقر على العنصر للحصول على معلوماته إن كانت متاحة في ملف المصدر.</p></div>
 <div class="card"><h3>تقرير فحص بيانات النموذج</h3><p class="minor">ملخص استكشافي لأسماء العناصر وتصنيفاتها، مأخوذ من البيانات الوصفية المترجمة. ليس تحليلًا هندسيًا للكود.</p><div id="info">العارض لم يحمّل نموذجًا بعد.</div></div>
 </div>
 </div>
@@ -51,6 +51,13 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 const $=id=>document.getElementById(id);
 let urn='',viewer=null,report=[],poll=0,lastPassword='',active=false,docRoot=null,docViewables=[],authorized=false,readyViewer=false,polling=false,checking=false,lastProgress='';
 let pollStartedAt=0;
+const STORAGE_JOB='civil-ai-aps-job-v1';
+const TASK_TTL=24*60*60*1000;
+function rememberTask(id){try{localStorage.setItem(STORAGE_JOB,JSON.stringify({urn:id,startedAt:pollStartedAt||Date.now()}))}catch{}}
+function forgetTask(){try{localStorage.removeItem(STORAGE_JOB)}catch{}}
+function readTask(){try{const data=JSON.parse(localStorage.getItem(STORAGE_JOB)||'null');if(data&&typeof data.urn==='string'&&/^[\w-]{40,1200}$/.test(data.urn)&&Number.isFinite(data.startedAt)&&Date.now()-data.startedAt<TASK_TTL&&data.startedAt<=Date.now()+120000)return data;}catch{}return null}
+function showElapsed(){if(!urn)return;$('elapsed').textContent='منذ بدء المعالجة: '+Math.max(1,Math.floor((Date.now()-pollStartedAt)/60000))+' دقيقة';}
+async function resumeTask(){if(urn||!authorized)return;const data=readTask();if(!data)return;urn=data.urn;pollStartedAt=data.startedAt;$('retry').disabled=false;state('استئناف المتابعة');say('تم استرجاع آخر مهمة محفوظة على هذا الجهاز. جارٍ طلب حالة تحويل Autodesk…');await beginPolling(true);}
 
 const fmt=n=>n.toLocaleString('en-US');
 const describeError=(value)=>{
@@ -92,7 +99,7 @@ function accessUI(value){
 }
 async function checkSession(){
  try{const response=await fetch('/api/aps?action=session',{credentials:'same-origin',cache:'no-store'});if(!response.ok)throw Error('تعذر التحقق من الجلسة');
- const result=await response.json();accessUI(result.authenticated)}
+ const result=await response.json();accessUI(result.authenticated);if(result.authenticated)await resumeTask()}
  catch(e){accessUI(false);$('accessState').textContent=e.message}
 }
 $('login').onclick=async()=>{
@@ -103,13 +110,13 @@ $('login').onclick=async()=>{
  const response=await fetch('/api/aps?action=session',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({password:pw})});
  const result=await response.json();
  if(!response.ok)throw Error(result.error||'تعذر الدخول');
- $('password').value='';accessUI(true);say('تم تفعيل الجهاز. اختر ملف DWG وابدأ التحويل.')
+ $('password').value='';accessUI(true);say('تم تفعيل الجهاز. اختر ملف DWG وابدأ التحويل.');await resumeTask()
  }catch(e){$('accessState').textContent=e.message}
  finally{$('login').disabled=false}
 };
 $('logout').onclick=async()=>{
  try{await fetch('/api/aps?action=session',{method:'DELETE',credentials:'same-origin'});}
- finally{stopPolling();accessUI(false);say('تم تسجيل خروج الجهاز.')}
+ finally{stopPolling();forgetTask();urn='';accessUI(false);say('تم تسجيل خروج الجهاز.')}
 };
 function stopPolling(){if(poll){clearTimeout(poll);poll=0}polling=false}
 
@@ -153,6 +160,7 @@ async function initViewer(){
    }
   },resolve,reject);
  });
+ $('viewerHint')?.remove();
  viewer=new Autodesk.Viewing.GuiViewer3D($('viewer'));
  const code=viewer.start();
  if(code>0)throw Error('Viewer failed to start: '+code);
@@ -196,21 +204,23 @@ async function status(){
  checking=true;
  try{
   const j=await api('status',null,'&urn='+encodeURIComponent(urn));
+  showElapsed();
   const progress=String(j.progress||'');
   const notes=Array.isArray(j.messages)&&j.messages.length?'\nملاحظات Autodesk:\n'+j.messages.join('\n'):'';
   const statusText=String(j.status||'pending').toLowerCase();
   state(statusText+(progress?' • '+progress:''));
   if(statusText==='success'){
     stopPolling();$('retry').disabled=true;say('اكتمل التحويل. جاري فتح الرسم والطبقات…');
-    await loadModel();return true;
+    await loadModel();forgetTask();return true;
   }
   if(statusText==='failed'||statusText==='timeout'){
-    stopPolling();$('retry').disabled=false;
+    stopPolling();forgetTask();$('retry').disabled=false;
     say('فشل تحويل الملف في Autodesk. افحص نسخة DWG والمراجع الخارجية، وجرّب ملفًا صغيرًا. '+notes);
     return true;
   }
   $('retry').disabled=false;
-  say('التحويل قيد المعالجة لدى Autodesk: '+statusText+(progress?' ('+progress+')':'')+notes+'\nتحديث تلقائي كل 8 ثوانٍ؛ يمكنك إبقاء الصفحة مفتوحة.');
+  const detail=progress==='0% complete'?'\nالنسبة 0% لا تعني بالضرورة توقف التحويل؛ Autodesk لم يبلّغ عن تقدم رقمي بعد.':'';
+  say('التحويل لدى Autodesk: '+statusText+(progress?' ('+progress+')':'')+notes+detail+'\nالمتابعة تلقائية كل 15 ثانية تقريبًا. يمكنك إعادة فتح الصفحة من هذا الهاتف لاستئنافها.');
   return false;
  }catch(e){
   stopPolling();
@@ -219,13 +229,18 @@ async function status(){
   return true;
  }finally{checking=false}
 }
-async function beginPolling(){
- stopPolling();polling=true;pollStartedAt=Date.now();
+async function beginPolling(resume=false){
+ stopPolling();polling=true;
+ if(!resume||!pollStartedAt)pollStartedAt=Date.now();
+ showElapsed();
  const cycle=async()=>{
   if(!polling||!urn)return;
-  if(Date.now()-pollStartedAt>10*60*1000){stopPolling();say('استمر التحويل أكثر من 10 دقائق دون اكتمال. قد تكون هناك مشكلة في خدمة Autodesk أو صيغة الملف. حاول تحديث الحالة لاحقًا.');return}
+  const overLimit=Date.now()-pollStartedAt>45*60*1000;
   const ended=await status();
-  if(!ended&&polling){poll=setTimeout(cycle,8000)}
+  if(!ended&&overLimit){
+    stopPolling();say('آخر فحص: المهمة لا تزال جارية بعد أكثر من 45 دقيقة. Autodesk قد يحتاج وقتًا إضافيًا. اضغط «تحديث حالة التحويل» للتحقق من جديد لاحقًا.');return;
+  }
+  if(!ended&&polling){poll=setTimeout(cycle,document.hidden?25000:15000)}
  };
  await cycle();
 }
@@ -245,7 +260,7 @@ $('upload').onclick=async()=>{
  if(file.size>500*1024*1024)return say('الحد الأقصى هو 500 MB');
  if(/\.dwg$/i.test(file.name)){const signature=await dwgHeader(file);if(!signature.valid)return say('الملف يحمل امتداد DWG لكن ترويسته لا تتطابق مع صيغة AutoCAD DWG المعروفة. تحقق منه في AutoCAD قبل الرفع.');}
  if(!/\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/i.test(file.name))return say('امتداد غير مدعوم هنا. RTD يحتاج تصديرًا من Robot.');
- active=true;$('upload').disabled=true;$('retry').disabled=true;stopPolling();urn='';resetViewer();
+ active=true;$('upload').disabled=true;$('retry').disabled=true;stopPolling();forgetTask();urn='';$('elapsed').textContent='—';resetViewer();
  try{
   state('جاري الرفع');say('طلب روابط الرفع الآمنة من Autodesk...');
   const prepared=await api('prepare',{name:file.name,size:file.size});
@@ -272,7 +287,7 @@ $('upload').onclick=async()=>{
   }
   say('تأكيد الرفع وبدء التحويل…');
   const completed=await api('complete',{key:prepared.key,uploadKey:prepared.uploadKey});
-  urn=completed.urn;state('تم إرسال طلب التحويل');say('تم استلام الملف بنجاح. سيُفحص تقدم التحويل تلقائيًا.');
+  urn=completed.urn;pollStartedAt=Date.now();rememberTask(urn);state('تم إرسال طلب التحويل');say('تم استلام الملف بنجاح. سيُفحص تقدم التحويل تلقائيًا، وستُحفظ مهمة المتابعة على هذا الجهاز لمدة 24 ساعة.');
   $('retry').disabled=false;
   await beginPolling();
  }catch(e){state('خطأ');say('فشل رفع أو تحويل الملف: '+describeError(e)+(String(e.message).includes('Failed to fetch')?'\nقد يكون السبب حجب طلب S3/CORS أو الشبكة.':''))}
