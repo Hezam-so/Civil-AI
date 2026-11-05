@@ -2,3 +2,10 @@
 
 /* Studio link uses the same navigation styling as the tool buttons. */
 a.nav{text-decoration:none}
+
+/* Civil AI owner contact — responsive footer */
+.site-contact{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px;margin-top:26px;padding:19px 21px;border:1px solid #274665;border-radius:16px;background:linear-gradient(120deg,#0e2944,#102037);color:#e9f5ff}
+.site-contact__identity{display:grid;gap:3px}.site-contact__label{font-size:12px;color:#8dc5d9}.site-contact__identity strong{font-size:17px}
+.site-contact__phone{display:inline-flex;align-items:center;gap:10px;border:1px solid #3497b1;border-radius:12px;background:#153d57;color:#e9faff;text-decoration:none;font-size:16px;font-weight:750;padding:10px 16px;direction:ltr}
+.site-contact__phone:hover{background:#205573}
+@media(max-width:600px){.site-contact{padding:14px}.site-contact__phone{width:100%;justify-content:center}}
