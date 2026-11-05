@@ -28,6 +28,11 @@ button.primary{background:#187fc0;border-color:#329cdb;font-weight:700}
 #meta{overflow-wrap:anywhere}.warn{border-inline-start:3px solid #e8b168;background:#332c23;padding:10px 13px;border-radius:6px;font-size:12px}
 @media(max-width:840px){.shell{padding:12px}.grid{grid-template-columns:1fr}#drawing{height:390px}.stats{grid-template-columns:repeat(2,minmax(0,1fr))}.card{padding:14px}}
 @media print{button,input,header,.warn,.bar{display:none!important}.shell{max-width:none}#drawing{height:500px}}
+
+.engineer-contact{margin:22px auto 12px;padding:14px 16px;border:1px solid #315571;border-radius:13px;background:linear-gradient(120deg,#102d46,#10223b);display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;color:#eaf7ff;font:14px/1.7 system-ui,Segoe UI,Tahoma,Arial,sans-serif}
+.engineer-contact strong{font-size:16px;display:block}.engineer-contact .owner-label{font-size:12px;color:#a7cada}
+.engineer-contact a{display:inline-flex;align-items:center;justify-content:center;padding:9px 15px;border:1px solid #398faf;border-radius:9px;background:#1b4660;color:#eefcff;text-decoration:none;direction:ltr;font-weight:bold;white-space:nowrap}
+@media(max-width:600px){.engineer-contact a{width:100%}}
 </style></head>
 <body><div class="shell">
 <header><div><b>CIVIL <span style="color:#49d2ed">AI</span> | DXF Explorer</b><small>Engineering Drawing Inspector • v1.0</small></div>
@@ -56,6 +61,7 @@ button.primary{background:#187fc0;border-color:#329cdb;font-weight:700}
 <aside class="card"><h3 style="margin-top:0">الطبقات (Layers)</h3><div class="bar"><button id="all">إظهار الكل</button><button id="none">إخفاء الكل</button></div>
 <div id="layers" class="layers"><p class="minor">ستظهر الطبقات هنا عند فتح ملف.</p></div>
 <h3>ملاحظات التحليل</h3><div id="warnings" class="minor">المعاينة ثنائية الأبعاد ومحدودة بأنواع العناصر المذكورة.</div></aside></div>
+<footer class="engineer-contact" aria-label="بيانات التواصل مع مالك Civil AI"><div><span class="owner-label">للتواصل والاستفسارات</span><strong>المهندس حزام سليمان</strong></div><a href="tel:+967775264654" aria-label="الاتصال بالمهندس حزام سليمان على الرقم +967775264654">☎ +967775264654</a></footer>
 </div>
 <script>
 'use strict';
