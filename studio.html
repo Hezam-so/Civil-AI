@@ -14,7 +14,7 @@
 .engineer-contact a{display:inline-flex;align-items:center;justify-content:center;padding:9px 15px;border:1px solid #398faf;border-radius:9px;background:#1b4660;color:#eefcff;text-decoration:none;direction:ltr;font-weight:bold;white-space:nowrap}
 @media(max-width:600px){.engineer-contact a{width:100%}}
 </style>
-</head>
+<style>body{visibility:hidden}</style><script src="account-gate.js" defer></script></head>
 <body>
 <div class="app">
 <aside class="aside">
@@ -33,7 +33,7 @@
   <div class="aside-foot">🔒 <span data-i18n="localMsg">الملفات تُحفظ محليًا في هذا المتصفح فقط.</span><p><a href="/" data-i18n="backHome">← العودة إلى Civil AI</a></p></div>
 </aside>
 <main class="main">
-<header class="topbar"><div class="crumb"><span style="color:var(--aqua)">CIVIL AI</span> / <span id="crumb">نظرة عامة</span></div><div class="top-actions"><button class="pill" id="langBtn">English</button><button class="pill" id="printBtn">⎙ <span data-i18n="print">طباعة</span></button><a class="pill" href="/">⌂</a></div></header>
+<header class="topbar"><div class="crumb"><span style="color:var(--aqua)">CIVIL AI</span> / <span id="crumb">نظرة عامة</span></div><div class="top-actions"><button class="pill" type="button" id="saveStudioProject">حفظ هذا العمل</button><button class="pill" id="langBtn">English</button><button class="pill" id="printBtn">⎙ <span data-i18n="print">طباعة</span></button><a class="pill" href="/">⌂</a></div></header>
 <section class="pane active" id="pane-home">
  <div class="hero"><div class="eyebrow">CIVIL AI / PROFESSIONAL ENGINEERING LAB</div><h1 data-i18n="hero">مختبر الهندسة المدنية الذكي</h1><p data-i18n="heroSub">حسابات إنشائية مرئية، حصر كميات، مكتبة مخططات هندسية، ومساعد ذكاء اصطناعي قابل للتفعيل — في مساحة عمل واحدة.</p><div class="badges"><span class="tag">Structural Analysis</span><span class="tag">Quantity Surveying</span><span class="tag">File Vault</span><span class="tag">AI-ready</span></div></div>
  <div class="section-title"><h2 data-i18n="overview">مؤشرات المختبر</h2></div>
@@ -93,7 +93,7 @@ let lastEarth=null;$('calcEarth').onclick=()=>{try{const lines=$('stations').val
 let bars=[{dia:16,len:6,qty:24,waste:5},{dia:12,len:3.5,qty:50,waste:5}],lastBars=[];function renderBars(){const tb=$('barsBody');tb.replaceChildren();bars.forEach((q,i)=>{const tr=document.createElement('tr');[q.dia,q.len,q.qty,q.waste].forEach(v=>{const td=document.createElement('td');td.textContent=v;tr.append(td)});const td=document.createElement('td'),b=document.createElement('button');b.className='btn sm danger';b.textContent='×';b.onclick=()=>{bars.splice(i,1);renderBars();calcBars()};td.append(b);tr.append(td);tb.append(tr)})}
 $('addBar').onclick=()=>{try{let dia=validN('barDia',.001,100),len=validN('barLen',.001),qty=validN('barQty',1),waste=validN('barWaste',0,100);if(!Number.isInteger(qty))throw Error('Quantity must be integer');if(bars.length>=200)throw Error('Maximum 200 bar items');bars.push({dia,len,qty,waste});renderBars();calcBars()}catch(e){alertError(e)}};function calcBars(){lastBars=bars.map(q=>({...q,net:Math.PI/4*(q.dia/1000)**2*7850*q.len*q.qty}));let net=lastBars.reduce((a,q)=>a+q.net,0),gross=lastBars.reduce((a,q)=>a+q.net*(1+q.waste/100),0);$('barsStats').innerHTML=s('Net steel · kg',fmt(net))+s('Including waste · kg',fmt(gross))+s('Including waste · t',fmt(gross/1000,3))+s('Items',bars.length);$('barsResults').replaceChildren();lastBars.forEach(q=>{const tr=document.createElement('tr');[q.dia,fmt(q.net),fmt(q.net*(1+q.waste/100))].forEach(x=>{let td=document.createElement('td');td.textContent=x;tr.append(td)});$('barsResults').append(tr)})}$('calcBars').onclick=calcBars;$('barsCSV').onclick=()=>csvDownload('rebar_takeoff.csv',[['Diameter_mm','Cut_length_m','Quantity','Waste_percent','Net_kg','With_waste_kg'],...lastBars.map(q=>[q.dia,q.len,q.qty,q.waste,q.net.toFixed(4),(q.net*(1+q.waste/100)).toFixed(4)])]);
 // IndexedDB vault. No file bytes leave the browser unless the user explicitly sends an image to AI.
-const DBNAME='civil-ai-studio-v2',STORE='assets';let db=null,selectedFile=null,previewURL=null;function dbOpen(){return new Promise((resolve,reject)=>{if(!('indexedDB'in window))return reject(Error('IndexedDB unavailable'));const q=indexedDB.open(DBNAME,1);q.onupgradeneeded=()=>q.result.createObjectStore(STORE,{keyPath:'id'});q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}function dbOp(mode,fn){return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,mode),store=tx.objectStore(STORE),q=fn(store);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}
+const STORE='assets';function vaultName(){if(!window.CivilAccount?.email)throw Error('Account required');return 'civil-ai-studio-v3-'+encodeURIComponent(window.CivilAccount.email)}let db=null,selectedFile=null,previewURL=null;function dbOpen(){return new Promise((resolve,reject)=>{if(!('indexedDB'in window))return reject(Error('IndexedDB unavailable'));const q=indexedDB.open(vaultName(),1);q.onupgradeneeded=()=>q.result.createObjectStore(STORE,{keyPath:'id'});q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}function dbOp(mode,fn){return new Promise((resolve,reject)=>{const tx=db.transaction(STORE,mode),store=tx.objectStore(STORE),q=fn(store);q.onsuccess=()=>resolve(q.result);q.onerror=()=>reject(q.error)})}
 async function initVault(){try{db=await dbOpen();await renderFiles()}catch(e){$('fileList').textContent=say('تعذر فتح مخزن الملفات في هذا المتصفح.','Cannot open local file storage in this browser.')}}
 function cat(name){const ext=name.toLowerCase().split('.').pop();if(['dwg','dxf','dwt'].includes(ext))return'CAD / AutoCAD';if(['rvt','rfa','ifc','rte'].includes(ext))return'BIM / Revit / IFC';if(['edb','sdb','f2k','e2k','std','s2k','dbs','ydb'].includes(ext))return'Structural model';if(['pdf'].includes(ext))return'PDF Drawing';if(['jpg','jpeg','png','webp'].includes(ext))return'Image';if(['xls','xlsx','csv'].includes(ext))return'Spreadsheet';if(['shp','kml','kmz','geojson','las'].includes(ext))return'GIS / Survey';return'Engineering attachment'}
 const imageOK=f=>['image/png','image/jpeg','image/webp'].includes(f.type)||/\.(jpg|jpeg|png|webp)$/i.test(f.name);const pdfOK=f=>f.type==='application/pdf'||/\.pdf$/i.test(f.name);const aiFileOK=f=>imageOK(f)||pdfOK(f);
@@ -111,6 +111,31 @@ async function aiStatus(){try{const r=await fetch('/api/assistant',{method:'GET'
 function fileToDataURL(f){return new Promise((res,rej)=>{const rd=new FileReader();rd.onload=()=>res(rd.result);rd.onerror=()=>rej(Error('File read error'));rd.readAsDataURL(f)})}
 $('sendAI').onclick=async()=>{const input=$('aiMessage'),text=input.value.trim();if(!text)return alert(say('اكتب سؤالك أولًا.','Enter a question.'));if(text.length>4000)return alert('Maximum 4000 characters');if(!aiEnabled)return alert(say('يلزم إعداد OpenAI API من Vercel قبل تشغيل المساعد الحقيقي. راجع ملف التعليمات.','Configure the OpenAI API in Vercel before enabling live AI. See the setup guide.'));let attachment=null,attachmentName=null;try{const uploaded=$('aiImage').files[0],saved=$('aiSavedImage').value;let file=uploaded|| (saved?await dbOp('readonly',s=>s.get(saved)):null);if(file){const raw=file.blob||file;if(!aiFileOK(file)||file.size>3*1024*1024)throw Error('Attachment must be JPEG, PNG, WebP or PDF < 3 MB');attachment=await fileToDataURL(raw);attachmentName=file.name;if(pdfOK(file)&&attachment.startsWith('data:;base64,'))attachment=attachment.replace('data:;base64,','data:application/pdf;base64,')}}catch(e){return alertError(e)}const btn=$('sendAI');btn.disabled=true;bubble('user',text+(attachment?'\n📎 attachment':''));const wait=bubble('assistant',say('جارٍ تحليل السؤال...','Analyzing...'));try{const messages=[...history.slice(-6),{role:'user',content:text}];const r=await fetch('/api/assistant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages,attachmentDataUrl:attachment,attachmentName})});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||`HTTP ${r.status}`);wait.textContent=j.answer||say('لم يصل رد نصي.','Empty response.');history=messages.slice(-6);history.push({role:'assistant',content:wait.textContent});input.value='';$('aiImage').value='';$('aiSavedImage').value=''}catch(e){wait.textContent=say('تعذّر الاتصال: ','Request failed: ')+e.message}finally{btn.disabled=false}};
 $('clearAI').onclick=()=>{history=[];$('chatBox').replaceChildren();bubble('assistant',say('تم مسح المحادثة. ما المسألة الهندسية التالية؟','Chat cleared. What engineering question can I help with?'))};
+// Account-scoped snapshots for engineering calculation screens, not uploaded files.
+$('saveStudioProject').onclick=async()=>{
+ const page=currentPage;
+ if(!window.CivilAccount)return alert('يرجى تسجيل الدخول أولًا.');
+ if(!['beam','section','footing','earth','rebar'].includes(page))return alert('اختر أداة حسابية أولًا، ثم احفظ نتائجها.');
+ const btn=$('saveStudioProject');btn.disabled=true;
+ try{
+  const pane=$('pane-'+page),fields=[];
+  pane.querySelectorAll('input,select,textarea').forEach(input=>{
+   if(input.type==='file'||input.type==='password'||input.type==='hidden'||input.type==='button')return;
+   if((input.type==='checkbox'||input.type==='radio')&&!input.checked)return;
+   const label=pane.querySelector('label[for="'+input.id+'"]');
+   const title=(label?.textContent||input.getAttribute('aria-label')||input.id||input.name||'مدخل').trim().slice(0,100);
+   fields.push({name:title,value:String(input.value||'').slice(0,300)});
+  });
+  const output=pane.innerText.slice(0,9000);
+  const title=(pane.querySelector('h1,h2,h3')?.textContent||page).trim().slice(0,110);
+  const response=await fetch('/api/projects?action=create',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Studio — '+title,type:'studio',data:{module:page,fields,summary:output,createdAt:new Date().toISOString()}})});
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||'فشل الحفظ');
+  alert('تم حفظ نتائج العمل في حسابك الخاص. ستظهر في «مشاريعي» على الصفحة الرئيسية.');
+ }catch(e){alert('تعذر حفظ العمل: '+e.message)}
+ finally{btn.disabled=false}
+};
+
 // Initial calculations & UI
-tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'));$('secType').dispatchEvent(new Event('change'));calcBeam();$('calcSection').click();$('calcFoot').click();$('calcEarth').click();calcBars();initVault();aiStatus();
+tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'));$('secType').dispatchEvent(new Event('change'));calcBeam();$('calcSection').click();$('calcFoot').click();$('calcEarth').click();calcBars();window.addEventListener('civil-auth-ready',()=>initVault());if(window.CivilAccount)initVault();aiStatus();
 </script></body></html>
