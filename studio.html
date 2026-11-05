@@ -33,7 +33,7 @@
   <div class="aside-foot">🔒 <span data-i18n="localMsg">الملفات تُحفظ محليًا في هذا المتصفح فقط.</span><p><a href="/" data-i18n="backHome">← العودة إلى Civil AI</a></p></div>
 </aside>
 <main class="main">
-<header class="topbar"><div class="crumb"><span style="color:var(--aqua)">CIVIL AI</span> / <span id="crumb">نظرة عامة</span></div><div class="top-actions"><button class="pill" id="langBtn">English</button><button class="pill" id="printBtn">⎙ <span data-i18n="print">طباعة</span></button><a class="pill" href="/">⌂</a></div></header>
+<header class="topbar"><div class="crumb"><span style="color:var(--aqua)">CIVIL AI</span> / <span id="crumb">نظرة عامة</span></div><div class="top-actions"><button class="pill" type="button" id="saveStudioProject">حفظ هذا العمل</button><button class="pill" id="langBtn">English</button><button class="pill" id="printBtn">⎙ <span data-i18n="print">طباعة</span></button><a class="pill" href="/">⌂</a></div></header>
 <section class="pane active" id="pane-home">
  <div class="hero"><div class="eyebrow">CIVIL AI / PROFESSIONAL ENGINEERING LAB</div><h1 data-i18n="hero">مختبر الهندسة المدنية الذكي</h1><p data-i18n="heroSub">حسابات إنشائية مرئية، حصر كميات، مكتبة مخططات هندسية، ومساعد ذكاء اصطناعي قابل للتفعيل — في مساحة عمل واحدة.</p><div class="badges"><span class="tag">Structural Analysis</span><span class="tag">Quantity Surveying</span><span class="tag">File Vault</span><span class="tag">AI-ready</span></div></div>
  <div class="section-title"><h2 data-i18n="overview">مؤشرات المختبر</h2></div>
@@ -111,6 +111,31 @@ async function aiStatus(){try{const r=await fetch('/api/assistant',{method:'GET'
 function fileToDataURL(f){return new Promise((res,rej)=>{const rd=new FileReader();rd.onload=()=>res(rd.result);rd.onerror=()=>rej(Error('File read error'));rd.readAsDataURL(f)})}
 $('sendAI').onclick=async()=>{const input=$('aiMessage'),text=input.value.trim();if(!text)return alert(say('اكتب سؤالك أولًا.','Enter a question.'));if(text.length>4000)return alert('Maximum 4000 characters');if(!aiEnabled)return alert(say('يلزم إعداد OpenAI API من Vercel قبل تشغيل المساعد الحقيقي. راجع ملف التعليمات.','Configure the OpenAI API in Vercel before enabling live AI. See the setup guide.'));let attachment=null,attachmentName=null;try{const uploaded=$('aiImage').files[0],saved=$('aiSavedImage').value;let file=uploaded|| (saved?await dbOp('readonly',s=>s.get(saved)):null);if(file){const raw=file.blob||file;if(!aiFileOK(file)||file.size>3*1024*1024)throw Error('Attachment must be JPEG, PNG, WebP or PDF < 3 MB');attachment=await fileToDataURL(raw);attachmentName=file.name;if(pdfOK(file)&&attachment.startsWith('data:;base64,'))attachment=attachment.replace('data:;base64,','data:application/pdf;base64,')}}catch(e){return alertError(e)}const btn=$('sendAI');btn.disabled=true;bubble('user',text+(attachment?'\n📎 attachment':''));const wait=bubble('assistant',say('جارٍ تحليل السؤال...','Analyzing...'));try{const messages=[...history.slice(-6),{role:'user',content:text}];const r=await fetch('/api/assistant',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages,attachmentDataUrl:attachment,attachmentName})});const j=await r.json().catch(()=>({}));if(!r.ok)throw Error(j.error||`HTTP ${r.status}`);wait.textContent=j.answer||say('لم يصل رد نصي.','Empty response.');history=messages.slice(-6);history.push({role:'assistant',content:wait.textContent});input.value='';$('aiImage').value='';$('aiSavedImage').value=''}catch(e){wait.textContent=say('تعذّر الاتصال: ','Request failed: ')+e.message}finally{btn.disabled=false}};
 $('clearAI').onclick=()=>{history=[];$('chatBox').replaceChildren();bubble('assistant',say('تم مسح المحادثة. ما المسألة الهندسية التالية؟','Chat cleared. What engineering question can I help with?'))};
+// Account-scoped snapshots for engineering calculation screens, not uploaded files.
+$('saveStudioProject').onclick=async()=>{
+ const page=currentPage;
+ if(!window.CivilAccount)return alert('يرجى تسجيل الدخول أولًا.');
+ if(!['beam','section','footing','earth','rebar'].includes(page))return alert('اختر أداة حسابية أولًا، ثم احفظ نتائجها.');
+ const btn=$('saveStudioProject');btn.disabled=true;
+ try{
+  const pane=$('pane-'+page),fields=[];
+  pane.querySelectorAll('input,select,textarea').forEach(input=>{
+   if(input.type==='file'||input.type==='password'||input.type==='hidden'||input.type==='button')return;
+   if((input.type==='checkbox'||input.type==='radio')&&!input.checked)return;
+   const label=pane.querySelector('label[for="'+input.id+'"]');
+   const title=(label?.textContent||input.getAttribute('aria-label')||input.id||input.name||'مدخل').trim().slice(0,100);
+   fields.push({name:title,value:String(input.value||'').slice(0,300)});
+  });
+  const output=pane.innerText.slice(0,9000);
+  const title=(pane.querySelector('h1,h2,h3')?.textContent||page).trim().slice(0,110);
+  const response=await fetch('/api/projects?action=create',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:'Studio — '+title,type:'studio',data:{module:page,fields,summary:output,createdAt:new Date().toISOString()}})});
+  const result=await response.json();
+  if(!response.ok)throw Error(result.error||'فشل الحفظ');
+  alert('تم حفظ نتائج العمل في حسابك الخاص. ستظهر في «مشاريعي» على الصفحة الرئيسية.');
+ }catch(e){alert('تعذر حفظ العمل: '+e.message)}
+ finally{btn.disabled=false}
+};
+
 // Initial calculations & UI
 tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'));$('secType').dispatchEvent(new Event('change'));calcBeam();$('calcSection').click();$('calcFoot').click();$('calcEarth').click();calcBars();window.addEventListener('civil-auth-ready',()=>initVault());if(window.CivilAccount)initVault();aiStatus();
 </script></body></html>
