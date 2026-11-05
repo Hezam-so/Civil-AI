@@ -109,7 +109,7 @@ async function ensureBucket(access) {
   if (check.ok) return b;
   if (check.status !== 404) throw Error('Cannot inspect APS storage bucket (' + check.status + ')');
   try {
-    await aps('/oss/v2/buckets', access, 'POST', { bucketKey: b, policyKey: 'temporary', access: 'full' }, { 'x-ads-region': 'US' });
+    await aps('/oss/v2/buckets', access, 'POST', { bucketKey: b, policyKey: 'transient', access: 'full' }, { 'x-ads-region': 'US' });
   } catch (e) { if (e.status !== 409) throw e;
     // A 409 can mean a bucket with this name belongs to a different app.
     const again = await fetch(BASE + '/oss/v2/buckets/' + b + '/details', {headers:{Authorization:'Bearer '+access}});
