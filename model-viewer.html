@@ -211,7 +211,7 @@ async function status(){
   state(statusText+(progress?' • '+progress:''));
   if(statusText==='success'){
     stopPolling();$('retry').disabled=true;say('اكتمل التحويل. جاري فتح الرسم والطبقات…');
-    await loadModel();return true;
+    await loadModel();forgetTask();return true;
   }
   if(statusText==='failed'||statusText==='timeout'){
     stopPolling();forgetTask();$('retry').disabled=false;
@@ -235,10 +235,11 @@ async function beginPolling(resume=false){
  showElapsed();
  const cycle=async()=>{
   if(!polling||!urn)return;
-  if(Date.now()-pollStartedAt>45*60*1000){
-    stopPolling();say('تجاوزت المهمة 45 دقيقة دون نتيجة نهائية. هذا لا يعني أن Autodesk ألغاها؛ اضغط «تحديث حالة التحويل» للتحقق لاحقًا، أو أعد فتح الصفحة.');return;
-  }
+  const overLimit=Date.now()-pollStartedAt>45*60*1000;
   const ended=await status();
+  if(!ended&&overLimit){
+    stopPolling();say('آخر فحص: المهمة لا تزال جارية بعد أكثر من 45 دقيقة. Autodesk قد يحتاج وقتًا إضافيًا. اضغط «تحديث حالة التحويل» للتحقق من جديد لاحقًا.');return;
+  }
   if(!ended&&polling){poll=setTimeout(cycle,document.hidden?25000:15000)}
  };
  await cycle();
