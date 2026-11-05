@@ -37,6 +37,7 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 </div>
 <p class="minor" id="dwgInspection" aria-live="polite">اختر ملف DWG لقراءة ترويسة الصيغة والتحقق منها محليًا قبل الإرسال.</p>
 <div class="flex" style="margin-top:14px"><button id="upload" class="primary" disabled>رفع وتحويل وعرض النموذج</button><button id="retry" disabled>تحديث حالة التحويل</button><button id="properties" disabled>تقرير خصائص النموذج</button><button id="csv" disabled>تصدير CSV</button></div>
+<div class="flex" style="margin-top:12px"><button id="diagnose" type="button">فحص اتصال Autodesk</button></div>
 <div class="minor" id="log" aria-live="polite" style="margin-top:10px">سيتحقق العارض من حساب Autodesk ثم يبدأ تحويل الملف، ويحدّث الحالة تلقائيًا.</div>
 </div>
 <div class="card"><div class="stats"><div class="stat"><small>حالة التحويل</small><b id="state">غير مهيأ</b></div><div class="stat"><small>العناصر المفحوصة</small><b id="objectCount">—</b></div><div class="stat"><small>العناصر ذات الخصائص</small><b id="propertyCount">—</b></div><div class="stat"><small>الطبقات المكتشفة في العينة</small><b id="layerCount">—</b></div></div></div>
@@ -52,7 +53,18 @@ let urn='',viewer=null,report=[],poll=0,lastPassword='',active=false,docRoot=nul
 let pollStartedAt=0;
 
 const fmt=n=>n.toLocaleString('en-US');
-const say=(txt)=>{$('log').textContent=String(txt)};
+const describeError=(value)=>{
+ if(typeof value==='string')return value;
+ if(value instanceof Error)return value.message||'Unknown error';
+ if(value&&typeof value==='object'){
+   for(const key of ['error','message','detail','description','reason','title']){
+     if(value[key]!==undefined){const msg=describeError(value[key]);if(msg&&msg!=='Unknown error')return msg}
+   }
+   try{return JSON.stringify(value).slice(0,500)}catch{}
+ }
+ return String(value??'Unknown error');
+};
+const say=(txt)=>{$('log').textContent=describeError(txt)};
 const state=(txt)=>{$('state').textContent=txt};
 async function api(action,body=null,query=''){
  const response=await fetch('/api/aps?action='+encodeURIComponent(action)+query,{
@@ -61,8 +73,12 @@ async function api(action,body=null,query=''){
   headers:body?{'Content-Type':'application/json'}:{},
   ...(body?{body:JSON.stringify(body)}:{})
  });
- const data=await response.json().catch(()=>({error:'Invalid server response'}));
- if(!response.ok)throw Error(data.error||'HTTP '+response.status);
+ const raw=await response.text();
+ let data;try{data=JSON.parse(raw)}catch{data={error:raw.slice(0,300)||'Invalid server response'}}
+ if(!response.ok){
+   const msg=describeError(data.error||data.message||data);
+   throw Error('HTTP '+response.status+' ('+action+')'+(data.phase?' · '+data.phase:'')+': '+msg);
+ }
  return data;
 }
 function accessUI(value){
@@ -213,6 +229,14 @@ async function beginPolling(){
  };
  await cycle();
 }
+$('diagnose').onclick=async()=>{
+ const b=$('diagnose');b.disabled=true;say('جاري فحص صلاحية Autodesk والتخزين…');
+ try{
+  const result=await api('diagnose');
+  say(result.ok?'اتصال Autodesk والتخزين جاهزان. ابدأ رفع ملف DWG.':'فشل '+(result.step==='oauth'?'مصادقة Autodesk':'إعداد مساحة التخزين')+': '+describeError(result.message||result));
+ }catch(e){say('تعذر إجراء فحص Autodesk: '+describeError(e))}
+ finally{b.disabled=false}
+};
 $('retry').onclick=async()=>{await beginPolling()};
 $('upload').onclick=async()=>{
  if(active)return;const file=$('file').files[0];
@@ -251,7 +275,7 @@ $('upload').onclick=async()=>{
   urn=completed.urn;state('تم إرسال طلب التحويل');say('تم استلام الملف بنجاح. سيُفحص تقدم التحويل تلقائيًا.');
   $('retry').disabled=false;
   await beginPolling();
- }catch(e){state('خطأ');say(e.message+(String(e.message).includes('Failed to fetch')?'\nقد يكون السبب سياسة CORS للرفع المباشر. راجع إعدادات APS.':''))}
+ }catch(e){state('خطأ');say('فشل رفع أو تحويل الملف: '+describeError(e)+(String(e.message).includes('Failed to fetch')?'\nقد يكون السبب حجب طلب S3/CORS أو الشبكة.':''))}
  finally{active=false;$('upload').disabled=!authorized}
 };
 $('views').addEventListener('change',async()=>{

@@ -45,9 +45,10 @@ function originSafe(req) {
 function bucket() {
   const id = process.env.APS_CLIENT_ID || '';
   // Stable bucket name, globally unique in most cases, with no user input.
-  const suffix = id.toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 38);
+  const suffix = id.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 38);
   if (!suffix || suffix.length < 6) throw Error('Invalid APS_CLIENT_ID');
-  return 'civilai-' + suffix;
+  // Use documented OSS-compatible bucket characters (lowercase, digits, underscore).
+  return 'civilai_' + suffix;
 }
 function parseBody(req) {
   if (req.body && typeof req.body === 'object') return req.body;
@@ -64,7 +65,10 @@ async function token(scopes) {
     body: new URLSearchParams({ grant_type: 'client_credentials', scope: scopes }).toString()
   });
   const result = await res.json().catch(() => ({}));
-  if (!res.ok || !result.access_token) throw Error('APS authentication failed (' + res.status + ')');
+  if (!res.ok || !result.access_token) {
+    const err = new Error('Autodesk OAuth authentication failed (HTTP ' + res.status + '). Verify Client ID, Client Secret, and APS app entitlements.');
+    err.status = res.status; throw err;
+  }
   return result;
 }
 const WRITER = 'bucket:create bucket:read data:create data:read data:write viewables:read';
@@ -79,8 +83,19 @@ async function aps(path, access, method = 'GET', body, headers = {}) {
   let out;
   try { out = JSON.parse(raw) } catch { out = { detail: raw.slice(0, 400) } }
   if (!response.ok) {
-    const detail = typeof out.reason === 'string' ? out.reason : out.developerMessage || out.message || out.detail || '';
-    const error = new Error('APS service returned ' + response.status + (detail ? ': ' + String(detail).slice(0, 220) : ''));
+    // APS may return nested objects instead of strings; never surface [object Object].
+    const candidates = [out?.developerMessage, out?.message, out?.reason, out?.detail, out?.error];
+    const describe = (v, level = 0) => {
+      if (typeof v === 'string') return v.trim().slice(0, 260);
+      if (level > 2 || !v || typeof v !== 'object') return '';
+      if (Array.isArray(v)) return v.slice(0, 2).map(x => describe(x, level + 1)).filter(Boolean).join(' | ');
+      for (const key of ['message', 'detail', 'description', 'reason', 'code', 'title']) {
+        if (v[key] !== undefined) { const result = describe(v[key], level + 1); if (result) return result; }
+      }
+      return '';
+    };
+    const detail = candidates.map(c => describe(c)).find(Boolean) || '';
+    const error = new Error('Autodesk API HTTP ' + response.status + (detail ? ': ' + detail : ' — check APS permissions and billing'));
     error.status = response.status;
     throw error;
   }
@@ -94,8 +109,12 @@ async function ensureBucket(access) {
   if (check.ok) return b;
   if (check.status !== 404) throw Error('Cannot inspect APS storage bucket (' + check.status + ')');
   try {
-    await aps('/oss/v2/buckets', access, 'POST', { bucketKey: b, policyKey: 'temporary' }, { 'x-ads-region': 'US' });
-  } catch (e) { if (e.status !== 409) throw e }
+    await aps('/oss/v2/buckets', access, 'POST', { bucketKey: b, policyKey: 'transient', access: 'full' }, { 'x-ads-region': 'US' });
+  } catch (e) { if (e.status !== 409) throw e;
+    // A 409 can mean a bucket with this name belongs to a different app.
+    const again = await fetch(BASE + '/oss/v2/buckets/' + b + '/details', {headers:{Authorization:'Bearer '+access}});
+    if (!again.ok) throw Error('The APS bucket name is already owned by another application');
+  }
   return b;
 }
 function validateUrn(value) {
@@ -133,6 +152,15 @@ module.exports = async function handler(req, res) {
       return res.status(200).json({ authenticated: false });
     }
     if (!auth(req)) return res.status(401).json({ error: 'Unauthorized. Sign in on this device first.' });
+    if (action === 'diagnose' && req.method === 'GET') {
+      // Owner-only: verify OAuth and OSS without uploading files or exposing credentials.
+      let t;
+      try { t = await token(WRITER); }
+      catch (e) { return res.status(200).json({ok:false,step:'oauth',status:e.status || null,message:String(e.message).slice(0,260)}); }
+      try { await ensureBucket(t.access_token); }
+      catch (e) { return res.status(200).json({ok:false,step:'storage',status:e.status || null,message:String(e.message).slice(0,260)}); }
+      return res.status(200).json({ok:true,step:'ready',message:'Autodesk OAuth and OSS bucket are ready; a real DWG translation has not yet been tested.'});
+    }
     if (action === 'viewer-token' && req.method === 'GET') {
       const t = await token(READER);
       return res.status(200).json({ access_token: t.access_token, expires_in: t.expires_in });
@@ -174,10 +202,12 @@ module.exports = async function handler(req, res) {
       const objectId = finished.objectId;
       if (typeof objectId !== 'string' || !objectId.includes('/' + key)) throw Error('APS did not return the uploaded object ID');
       const urn = Buffer.from(objectId).toString('base64').replace(/=/g,'').replace(/\+/g,'-').replace(/\//g,'_');
-      await aps('/modelderivative/v2/designdata/job', t.access_token, 'POST', {
+      try {
+        await aps('/modelderivative/v2/designdata/job', t.access_token, 'POST', {
         input: { urn },
         output: { formats: [{ type: 'svf2', views: ['2d','3d'] }] }
-      });
+        });
+      } catch (e) { e.message = 'File uploaded, but Autodesk translation submission failed: ' + e.message; throw e; }
       return res.status(200).json({ urn, status: 'submitted' });
     }
     if (action === 'status' && req.method === 'GET') {
@@ -218,6 +248,6 @@ module.exports = async function handler(req, res) {
     return res.status(404).json({ error: 'Unknown action' });
   } catch (e) {
     console.error('Civil AI APS:', e.message);
-    return res.status(e.status >= 400 && e.status < 500 ? 502 : 500).json({ error: String(e.message || e).slice(0, 300) });
+    return res.status(e.status >= 400 && e.status < 500 ? 502 : 500).json({ error: String(e.message || e).slice(0, 300), phase: action || 'unknown', upstreamStatus: e.status || null });
   }
 };
