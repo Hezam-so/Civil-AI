@@ -12,7 +12,7 @@ async function loadAccountProjects(){
  if(!window.CivilAccount){accountProjects=[];renderProjects();return}
  try{
   const response=await projectApi('list');
-  accountProjects=(response.projects||[]).map(p=>({...p.data,id:p.id,created:p.createdAt,ownerName:window.CivilAccount.name,type:p.data?.type||p.type}));
+  accountProjects=(response.projects||[]).map(p=>({...p.data,id:p.id,created:p.createdAt,_title:p.title,ownerName:window.CivilAccount.name,type:p.data?.type||p.type}));
   renderProjects();
  }catch(e){$('projectList').textContent='تعذر تحميل المشاريع من حسابك: '+e.message}
 }
@@ -34,10 +34,18 @@ function renderProjects(){
  items.forEach(p=>{
   const row=document.createElement('div');row.className='projectrow';
   const info=document.createElement('div'),title=document.createElement('strong');
-  title.textContent=t(p.type);
+  title.textContent=p._title||(p.type==='beam'?t('beam'):p.type==='concrete'?t('concrete'):p.type||'مشروع');
   const detail=document.createElement('small');
-  detail.textContent=(p.type==='beam'?'L='+p.L+' m · Mmax='+fmt(p.maxMoment)+' kN·m':fmt(p.gross)+' m³ · '+fmt(p.total))+' · '+new Date(p.created).toLocaleString(lang==='ar'?'ar':'en')+' · '+(p.ownerName||window.CivilAccount.name);
+  const note=p.type==='beam'?('L='+p.L+' m · Mmax='+fmt(p.maxMoment)+' kN·m'):p.type==='concrete'?(fmt(p.gross)+' m³ · '+fmt(p.total)):'عمل هندسي محفوظ';
+  detail.textContent=note+' · '+new Date(p.created).toLocaleString(lang==='ar'?'ar':'en')+' · '+(p.ownerName||window.CivilAccount.name);
   info.append(title,detail);
+  const d=document.createElement('details');d.style.marginTop='7px';
+  const summary=document.createElement('summary');summary.textContent='عرض تفاصيل العمل المحفوظ';d.append(summary);
+  const pre=document.createElement('pre');pre.style.cssText='white-space:pre-wrap;max-height:270px;overflow:auto;direction:auto;font-size:12px;';
+  if(p.type==='studio'){
+   pre.textContent='الأداة: '+(p.module||'')+'\n'+(p.fields||[]).map(x=>x.name+': '+x.value).join('\n')+'\n\nملخص الناتج:\n'+String(p.summary||'').slice(0,5000);
+  }else pre.textContent=Object.entries(p).filter(([k])=>!['id','ownerName','_title','created'].includes(k)).map(([k,v])=>k+': '+(typeof v==='object'?JSON.stringify(v):v)).join('\n');
+  d.append(pre);info.append(d);
   const btn=document.createElement('button');btn.className='danger';btn.textContent=t('delete');
   btn.onclick=async()=>{if(!confirm('هل تريد حذف هذا المشروع من حسابك؟'))return;btn.disabled=true;try{await projectApi('delete',{id:p.id});await loadAccountProjects()}catch(e){alert(e.message);btn.disabled=false}};
   row.append(info,btn);$('projectList').append(row);
