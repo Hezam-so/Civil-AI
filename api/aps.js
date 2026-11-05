@@ -4,8 +4,8 @@
 const { timingSafeEqual, randomUUID, createHmac, randomBytes } = require('node:crypto');
 const BASE = 'https://developer.api.autodesk.com';
 const MB = 1024 * 1024;
-const CHUNK = 10 * MB;
-const MAX_FILE = 100 * MB;
+const CHUNK = 25 * MB;
+const MAX_FILE = 500 * MB;
 const EXT = new Set(['dwg', 'dxf', 'rvt', 'rfa', 'ifc', 'nwd', 'nwc']);
 const validKey = /^civilai-[0-9a-f-]{36}\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/;
 const COOKIE_NAME = 'civilai_aps_session';
@@ -141,7 +141,7 @@ module.exports = async function handler(req, res) {
       const body = parseBody(req), name = String(body.name || '');
       const ext = name.split('.').pop().toLowerCase(), size = Number(body.size);
       if (!EXT.has(ext)) return res.status(400).json({ error: 'Unsupported format. Robot .RTD needs export from Robot.' });
-      if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_FILE) return res.status(400).json({ error: 'File size must be 1 byte to 100 MB' });
+      if (!Number.isSafeInteger(size) || size <= 0 || size > MAX_FILE) return res.status(400).json({ error: 'File size must be 1 byte to 500 MB' });
       const key = 'civilai-' + randomUUID() + '.' + ext;
       const parts = Math.ceil(size / CHUNK);
       const t = await token(WRITER);
@@ -150,6 +150,21 @@ module.exports = async function handler(req, res) {
       const result = await aps('/oss/v2/buckets/' + b + '/objects/' + encodeURIComponent(key) + '/signeds3upload?parts=' + parts + '&minutesExpiration=30', t.access_token);
       if (!Array.isArray(result.urls) || result.urls.length !== parts || typeof result.uploadKey !== 'string') throw Error('APS did not return signed upload URLs');
       return res.status(200).json({ key, uploadKey: result.uploadKey, urls: result.urls, chunkSize: CHUNK });
+    }
+    if (action === 'refresh-upload' && req.method === 'POST') {
+      const body = parseBody(req), key = String(body.key || ''), uploadKey = String(body.uploadKey || '');
+      const firstPart = Number(body.firstPart), parts = Number(body.parts);
+      if (!validKey.test(key) || !uploadKey || uploadKey.length > 2000 ||
+          !Number.isSafeInteger(firstPart) || firstPart < 1 || firstPart > 20 ||
+          !Number.isSafeInteger(parts) || parts < 1 || parts > 20 || firstPart + parts > 21)
+        return res.status(400).json({error:'Invalid upload URL refresh request'});
+      const t = await token(WRITER), b = bucket();
+      const path = '/oss/v2/buckets/' + b + '/objects/' + encodeURIComponent(key) +
+        '/signeds3upload?firstPart=' + firstPart + '&parts=' + parts +
+        '&uploadKey=' + encodeURIComponent(uploadKey) + '&minutesExpiration=30';
+      const result = await aps(path,t.access_token);
+      if (!Array.isArray(result.urls) || result.urls.length !== parts) throw Error('Could not refresh upload URLs');
+      return res.status(200).json({urls:result.urls});
     }
     if (action === 'complete' && req.method === 'POST') {
       const body = parseBody(req), key = String(body.key || ''), uploadKey = String(body.uploadKey || '');

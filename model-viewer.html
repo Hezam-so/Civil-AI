@@ -33,7 +33,7 @@ label{display:block;color:#bccbe0;font-size:13px;margin-bottom:5px}.flex{display
 <div class="flex"><span id="configured" class="minor">جاري فحص الخادم…</span><a href="https://aps.autodesk.com/" target="_blank" rel="noopener noreferrer" class="minor">إنشاء حساب Autodesk APS</a></div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:13px">
 <div id="ownerLogin"><label for="password">تفعيل الجهاز مرة واحدة (دخول المالك)</label><input id="password" type="password" autocomplete="off" placeholder="كلمة مرور المالك الخاصة بموقعك"><div class="flex" style="margin-top:8px"><button type="button" id="login" class="primary">تفعيل هذا الجهاز</button><button type="button" id="logout" style="display:none">تسجيل خروج الجهاز</button></div><div id="accessState" class="minor" aria-live="polite">جاري فحص جلسة الجهاز…</div></div>
-<div><label for="file">ملف CAD / BIM، حتى 100 MB</label><input id="file" type="file" accept=".dwg,.dxf,.rvt,.rfa,.ifc,.nwd,.nwc"></div>
+<div><label for="file">ملف CAD / BIM، حتى 500 MB</label><input id="file" type="file" accept=".dwg,.dxf,.rvt,.rfa,.ifc,.nwd,.nwc"></div>
 </div>
 <p class="minor" id="dwgInspection" aria-live="polite">اختر ملف DWG لقراءة ترويسة الصيغة والتحقق منها محليًا قبل الإرسال.</p>
 <div class="flex" style="margin-top:14px"><button id="upload" class="primary" disabled>رفع وتحويل وعرض النموذج</button><button id="retry" disabled>تحديث حالة التحويل</button><button id="properties" disabled>تقرير خصائص النموذج</button><button id="csv" disabled>تصدير CSV</button></div>
@@ -218,7 +218,7 @@ $('upload').onclick=async()=>{
  if(active)return;const file=$('file').files[0];
  if(!authorized)return say('فعّل الجهاز عبر تسجيل دخول المالك أولًا.');
  if(!file)return say('اختر ملفًا أولًا');
- if(file.size>100*1024*1024)return say('الحد الأقصى هو 100 MB');
+ if(file.size>500*1024*1024)return say('الحد الأقصى هو 500 MB');
  if(/\.dwg$/i.test(file.name)){const signature=await dwgHeader(file);if(!signature.valid)return say('الملف يحمل امتداد DWG لكن ترويسته لا تتطابق مع صيغة AutoCAD DWG المعروفة. تحقق منه في AutoCAD قبل الرفع.');}
  if(!/\.(dwg|dxf|rvt|rfa|ifc|nwd|nwc)$/i.test(file.name))return say('امتداد غير مدعوم هنا. RTD يحتاج تصديرًا من Robot.');
  active=true;$('upload').disabled=true;$('retry').disabled=true;stopPolling();urn='';resetViewer();
@@ -230,8 +230,21 @@ $('upload').onclick=async()=>{
   for(let i=0;i<prepared.urls.length;i++){
    const piece=file.slice(i*chunk,Math.min(file.size,(i+1)*chunk));
    say('رفع الجزء '+(i+1)+' من '+prepared.urls.length+' إلى Autodesk…');
-   const response=await fetch(prepared.urls[i],{method:'PUT',body:piece,headers:{'Content-Type':'application/octet-stream'}});
-   if(!response.ok)throw Error('فشل تحميل الجزء '+(i+1)+': '+response.status);
+   let signedURL=prepared.urls[i], uploaded=false;
+   for(let attempt=0;attempt<4;attempt++){
+     try{
+       const response=await fetch(signedURL,{method:'PUT',body:piece,headers:{'Content-Type':'application/octet-stream'}});
+       if(response.ok){uploaded=true;break}
+       if(response.status===403){
+         const refreshed=await api('refresh-upload',{key:prepared.key,uploadKey:prepared.uploadKey,firstPart:i+1,parts:1});
+         signedURL=refreshed.urls[0];
+       }else if(response.status!==429&&response.status<500){
+         throw Error('فشل رفع الجزء '+(i+1)+': '+response.status);
+       }
+     }catch(error){if(attempt===3)throw error}
+     if(attempt<3)await new Promise(r=>setTimeout(r,750*Math.pow(2,attempt)));
+   }
+   if(!uploaded)throw Error('تعذر رفع الجزء '+(i+1)+' بعد إعادة المحاولة');
   }
   say('تأكيد الرفع وبدء التحويل…');
   const completed=await api('complete',{key:prepared.key,uploadKey:prepared.uploadKey});
