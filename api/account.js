@@ -8,7 +8,7 @@ const attempts=new Map();
 function permitAttempt(req,action){
  const ip=String(req.headers['x-real-ip']||req.headers['x-forwarded-for']||'unknown').split(',')[0].trim().slice(0,65);
  const key=action+':'+ip,now=Date.now(),entry=attempts.get(key);
- const ceiling=action==='register'?5:12;
+ const ceiling=action==='register'?5:action==='check-email'?5:12;
  if(entry&&entry.end>now){
   if(entry.count>=ceiling)return false;
   entry.count++;return true;
@@ -80,10 +80,20 @@ module.exports=async function(req,res){
  if(req.headers['content-length']&&Number(req.headers['content-length'])>maxBytes)return invalid(res,413,'Request too large');
  const b=parse(req);
  if(action==='logout'){clearCookie(res);return res.status(200).json({authenticated:false})}
+ if(action==='check-email'){
+   if(!permitAttempt(req,action))return invalid(res,429,'طلبات فحص كثيرة. حاول بعد عشر دقائق.');
+   const email=normEmail(b.email);
+   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)return invalid(res,400,'أدخل بريدًا إلكترونيًا صحيحًا.');
+   const user=await readJson('civilai/users/'+toId(email)+'.json');
+   // Status lookup is user-initiated and throttled. Never include private account details.
+   return res.status(200).json({registered:Boolean(user),message:user?'هذا البريد مسجّل في Civil AI.':'هذا البريد غير مسجّل في Civil AI.'});
+ }
  if(action!=='register'&&action!=='login')return invalid(res,404,'Unknown action');
  if(!permitAttempt(req,action))return invalid(res,429,'محاولات كثيرة. جرّب بعد عشر دقائق.');
  const email=normEmail(b.email),password=String(b.password||'');
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||password.length<6||password.length>128)return invalid(res,400,'أدخل بريدًا صحيحًا وكلمة مرور من 6 إلى 128 حرفًا.');
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254)return invalid(res,400,'أدخل عنوان بريد إلكتروني صحيحًا.');
+ if(password.length>(128)||password.length<(action==='register'?8:6))
+   return invalid(res,400,action==='register'?'كلمة مرور الحساب الجديد يجب أن تتكون من 8 إلى 128 حرفًا أو رقمًا.':'البريد الإلكتروني أو كلمة المرور غير صحيحة.');
  const id=toId(email),path='civilai/users/'+id+'.json';
  if(action==='register'){
    const name=String(b.name||'').trim().slice(0,90);
