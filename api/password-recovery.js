@@ -29,7 +29,7 @@ function ipOK(req,operation){
 }
 const read=async(path)=>{
  const b=await get(path,{access:'private'});
- return b?.stream?{value:JSON.parse(await new Response(b.stream).text()),etag:b.etag}:null;
+ return b?.stream?{value:JSON.parse(await new Response(b.stream).text()),etag:b.blob?.etag}:null;
 };
 const write=(path,data,opts={})=>put(path,JSON.stringify(data),{
  access:'private',contentType:'application/json',addRandomSuffix:false,
@@ -108,8 +108,8 @@ module.exports=async function(req,res){
     return fail(res,409,'جرى تحديث طلب الاستعادة؛ انتظر قليلًا ثم حاول مجددًا.');throw e}
   if(!good)return fail(res,400,'الرمز غير صحيح أو انتهت صلاحيته. اطلب رمزًا جديدًا.');
   const salt=crypto.randomBytes(16).toString('hex');
-  const passwordHash=await passwordHash(newPassword,salt);
-  const user={...existing.value,salt,passwordHash,sessionVersion:crypto.randomBytes(16).toString('hex'),passwordChangedAt:new Date().toISOString()};
+  const newPasswordHash=await passwordHash(newPassword,salt);
+  const user={...existing.value,salt,passwordHash:newPasswordHash,sessionVersion:crypto.randomBytes(16).toString('hex'),passwordChangedAt:new Date().toISOString()};
   try{await write(userPath,user,{allowOverwrite:true,ifMatch:existing.etag})}
   catch(e){return fail(res,409,'تعذر إتمام التحديث بسبب تعديل آخر للحساب. اطلب رمزًا جديدًا.')}
   // Clear current browser session; old signed sessions are invalidated by sessionVersion.
