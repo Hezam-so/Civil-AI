@@ -33,7 +33,7 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   return data;
  };
  const emailLookupCache=new Map();
- const validEmail=(mail)=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(mail||'').trim())&&String(mail||'').trim().length<=254;
+ const validEmail=(mail)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(mail||'').trim())&&String(mail||'').trim().length<=254;
  async function lookupEmail(mail){
    const key=String(mail||'').trim().toLowerCase();
    const prior=emailLookupCache.get(key);
