@@ -6,7 +6,61 @@ const fmt=(v,n=3)=>Number.isFinite(v)?new Intl.NumberFormat('en-US',{maximumFrac
 const parse=v=>String(v).trim()===''?NaN:Number(v);
 const unitFactors={m2:1,labna:44.44,dhamar:114.49,amran:64,taiz:20.25,ibb:56.25,ha:10000,acre:4046.8564224,ft2:.09290304};
 let coords=[],saved=[],undoStack=[],current=null,mode='add',markers=[],selected=-1;
-let roads=[],activeRoad=[],roadMarkers=[];
+let roads=[],activeRoad=[],roadMarkers=[],nearbyRoads=[],nearbyRequest=null,nearbyBasis='';
+const parcelSignature=()=>coords.map(p=>p.lat.toFixed(8)+','+p.lng.toFixed(8)).join('|');
+function roadBounds(){
+ if(coords.length<3||!current)return null;
+ const lat=coords.map(p=>p.lat),lng=coords.map(p=>p.lng);
+ const midLat=(Math.min(...lat)+Math.max(...lat))/2;
+ const padLat=130/111195,padLon=130/(111195*Math.max(.15,Math.cos(midLat*Math.PI/180)));
+ return [Math.max(-85,Math.min(...lat)-padLat),Math.max(-180,Math.min(...lng)-padLon),Math.min(85,Math.max(...lat)+padLat),Math.min(180,Math.max(...lng)+padLon)];
+}
+function parseOSMRoads(elements,bbox){
+ const list=[],ids=new Set(),[south,west,north,east]=bbox;
+ // Clip every line segment to the parcel neighbourhood; preserve roads crossing the
+ // bounding box even if neither original OSM node lies within it.
+ const clipped=(a,b)=>{
+  let lo=0,hi=1;const dx=b.lng-a.lng,dy=b.lat-a.lat;
+  for(const [p,q] of [[-dx,a.lng-west],[dx,east-a.lng],[-dy,a.lat-south],[dy,north-a.lat]]){
+   if(Math.abs(p)<1e-15){if(q<0)return null;continue}
+   const t=q/p;if(p<0)lo=Math.max(lo,t);else hi=Math.min(hi,t);
+   if(lo>hi)return null;
+  }
+  return [{lat:a.lat+lo*dy,lng:a.lng+lo*dx},{lat:a.lat+hi*dy,lng:a.lng+hi*dx}];
+ };
+ for(const way of (Array.isArray(elements)?elements:[])){
+  if(way.type!=='way'||!way.tags?.highway||!Array.isArray(way.geometry)||ids.has(way.id))continue;
+  if(/^(footway|path|steps|cycleway|pedestrian|corridor|platform|construction|proposed)$/.test(way.tags.highway))continue;
+  const geom=way.geometry.filter(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lon)).slice(0,2000).map(p=>({lat:p.lat,lng:p.lon}));
+  let part=[];
+  const store=()=>{
+   if(part.length>1){
+    ids.add(way.id);
+    const width=Number.parseFloat(way.tags.width);
+    list.push({name:String(way.tags['name:ar']||way.tags.name||'شارع غير مسمى').slice(0,80),source:'OpenStreetMap',
+     osmId:way.id,width:Number.isFinite(width)&&width>0&&width<100?width:null,points:part.slice(0,100)});
+   }
+   part=[];
+  };
+  for(let j=0;j<geom.length-1;j++){
+   const p=clipped(geom[j],geom[j+1]);
+   if(!p){store();continue}
+   const a={lat:Number(p[0].lat.toFixed(8)),lng:Number(p[0].lng.toFixed(8))};
+   const b={lat:Number(p[1].lat.toFixed(8)),lng:Number(p[1].lng.toFixed(8))};
+   if(!part.length)part.push(a);
+   else if(Math.hypot(part[part.length-1].lat-a.lat,part[part.length-1].lng-a.lng)>1e-7){store();part.push(a)}
+   part.push(b);
+   if(part.length>=100)store();
+  }
+  store();
+  if(list.length>=30)break;
+ }
+ return list.slice(0,30);
+}
+function exportRoads(){
+ const manual=cloneRoads();
+ return $('includeNearbyRoads').checked&&nearbyBasis===parcelSignature()?manual.concat(nearbyRoads).slice(0,70):manual;
+}
 const cloneRoads=()=>roads.map(r=>({name:r.name,width:r.width,points:r.points.map(p=>({...p}))}));
 const snapshot=()=>({coords:coords.map(p=>({...p})),roads:cloneRoads(),activeRoad:activeRoad.map(p=>({...p}))});
 const restore=state=>{
@@ -22,12 +76,12 @@ function downloadFile(content,extension,mime){
 const showStatus=(message,error=false)=>{
  const el=$('mapStatus');el.textContent=message;el.classList.toggle('error',Boolean(error));
 };
-const map=L.map('satelliteMap',{center:[15.5,44.2],zoom:7,zoomControl:true,preferCanvas:true,doubleClickZoom:false});
+const map=L.map('satelliteMap',{center:[15.5,44.2],zoom:7,maxZoom:23,zoomSnap:.5,zoomDelta:.5,zoomControl:true,preferCanvas:true,doubleClickZoom:false});
 const satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
- maxZoom:19,attribution:'Tiles © Esri — Sources: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+ maxNativeZoom:19,maxZoom:23,attribution:'Tiles © Esri — Sources: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
 });
 const streets=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
- maxZoom:19,attribution:'© OpenStreetMap contributors'
+ maxNativeZoom:19,maxZoom:23,attribution:'© OpenStreetMap contributors'
 });
 satellite.addTo(map);
 const boundary=L.polygon([],{color:'#f1b84c',weight:3,fillColor:'#18b6aa',fillOpacity:.17}).addTo(map);
@@ -172,6 +226,10 @@ function renderTable(){
  });
 }
 function refresh(){
+ if(nearbyBasis&&nearbyBasis!==parcelSignature()){
+  nearbyRoads=[];nearbyBasis='';
+  $('nearbyRoadStatus').textContent='تغيّرت حدود الأرض. فعّل الخيار مرة أخرى أو اضغط جلب الشوارع لتحديث الطرق المجاورة.';
+ }
  const result=G.validate(coords);
  paint();renderTable();setNumbers(result);
 }
@@ -285,8 +343,8 @@ $('restoreProject').onclick=()=>{
  if(i===''||!p)return showStatus('اختر مشروعًا محفوظًا أولًا.',true);
  const points=p.data.points.map(c=>({lat:Number(c.lat),lng:Number(c.lng)}));
  if(!G.validate(points).valid)return showStatus('إحداثيات هذا المشروع غير صالحة.',true);
- history();coords=points;roads=Array.isArray(p.data.roads)?p.data.roads.slice(0,50).map(r=>({name:String(r.name||'Road').slice(0,80),width:Number(r.width)||8,points:(r.points||[]).slice(0,100).map(q=>({lat:Number(q.lat),lng:Number(q.lng)}))})).filter(r=>r.points.length>=2):[];activeRoad=[];selected=-1;$('projectTitle').value=p.title;refresh();
- map.fitBounds(L.latLngBounds(coords.map(angleLatLng)),{padding:[40,40],maxZoom:19});
+ history();coords=points;nearbyRoads=[];nearbyBasis='';$('includeNearbyRoads').checked=false;roads=Array.isArray(p.data.roads)?p.data.roads.slice(0,50).map(r=>({name:String(r.name||'Road').slice(0,80),width:Number(r.width)||8,points:(r.points||[]).slice(0,100).map(q=>({lat:Number(q.lat),lng:Number(q.lng)}))})).filter(r=>r.points.length>=2):[];activeRoad=[];selected=-1;$('projectTitle').value=p.title;refresh();
+ map.fitBounds(L.latLngBounds(coords.map(angleLatLng)),{padding:[40,40],maxZoom:22});
  showStatus('استُعيدت حدود المشروع المحفوظ: '+p.title);
 };
 const canExport=()=>{
@@ -294,12 +352,53 @@ const canExport=()=>{
  if(!current){showStatus('يجب إكمال حدود أرض صالحة قبل تنزيل المخطط.',true);return false}
  return true;
 };
-function exportData(){return{points:coords,title:$('projectTitle').value.trim()||'Civil AI Parcel',roads:cloneRoads()}}
+function exportData(){return{points:coords,title:$('projectTitle').value.trim()||'مخطط أرض',roads:exportRoads()}}
 $('exportDXF').onclick=()=>{
  if(!canExport())return;
  try{downloadFile(Export.createDXF(exportData(),G),'dxf','application/dxf');showStatus('تم تجهيز ملف DXF قابل للتعديل في AutoCAD؛ الشوارع والأبعاد وسهم الشمال في طبقات مستقلة.')}
  catch(e){showStatus('تعذر إنشاء DXF: '+e.message,true)}
 };
+$('includeNearbyRoads').onchange=()=>{
+ if($('includeNearbyRoads').checked&&(!nearbyRoads.length||nearbyBasis!==parcelSignature()))return $('loadNearbyRoads').onclick();
+ $('nearbyRoadStatus').textContent=$('includeNearbyRoads').checked
+  ?('مفعّل: سيتم تضمين '+nearbyRoads.length+' شارعًا من OpenStreetMap في التصدير فقط. اضغط «جلب الشوارع» لتحديث البيانات.')
+  :'تم إيقاف تضمين الشوارع المستخرجة؛ ستُصدّر الشوارع المرسومة يدويًا فقط.';
+};
+$('loadNearbyRoads').onclick=async()=>{
+ if(!current)return showStatus('حدد حدود قطعة أرض صالحة قبل استيراد الشوارع.',true);
+ const box=roadBounds();if(!box)return;
+ const query='[out:json][timeout:15];way["highway"]('+box.map(v=>v.toFixed(7)).join(',')+');out geom;';
+ const button=$('loadNearbyRoads');button.disabled=true;
+ nearbyRequest?.abort();
+ const ctrl=new AbortController();nearbyRequest=ctrl;
+ const timeout=setTimeout(()=>ctrl.abort(),17500);
+ $('nearbyRoadStatus').textContent='جارٍ جلب محاور الطرق من OpenStreetMap ...';
+ try{
+  let response;
+  const urls=['https://overpass.private.coffee/api/interpreter','https://overpass-api.de/api/interpreter'];
+  for(const endpoint of urls){
+   try{
+    response=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:'data='+encodeURIComponent(query),signal:ctrl.signal});
+    if(response.ok)break;
+   }catch(err){if(ctrl.signal.aborted)throw err;}
+  }
+  if(!response?.ok)throw Error('خدمة بيانات الطرق غير متاحة حاليًا.');
+  const payload=await response.json();
+  if(ctrl.signal.aborted||nearbyBasis&&nearbyBasis!==parcelSignature())throw Error('تم تغيير حدود الأرض أثناء جلب الطرق؛ أعد المحاولة.');
+  nearbyRoads=parseOSMRoads(payload.elements,box);
+  nearbyBasis=parcelSignature();$('includeNearbyRoads').checked=true;
+  $('nearbyRoadStatus').textContent='تم جلب '+nearbyRoads.length+' شارعًا من OpenStreetMap. ستظهر في DXF وPDF فقط عند تفعيل مربع الاختيار. البيانات تقريبية وقد تكون ناقصة.';
+  showStatus('تم جلب الشوارع المجاورة. يمكنك تنزيل المخطط مع الشوارع تلقائيًا.');
+ }catch(err){
+  $('nearbyRoadStatus').textContent='تعذر استيراد الشوارع: '+(ctrl.signal.aborted?'انتهت مهلة الخادم.':err.message)+' يمكنك رسم الشوارع يدويًا بدلًا من ذلك.';
+ }finally{clearTimeout(timeout);if(nearbyRequest===ctrl)nearbyRequest=null;button.disabled=false}
+};
+$('zoomCloser').onclick=()=>map.setZoom(Math.min(23,map.getZoom()+1));
+$('zoomSlider').oninput=e=>map.setZoom(Number(e.target.value),{animate:false});
+map.on('zoomend',()=>{
+ const z=map.getZoom();$('zoomSlider').value=z.toString();$('zoomLevel').textContent=z.toFixed(1);
+});
 $('exportPDF').onclick=()=>{
  if(!canExport())return;
  try{downloadFile(Export.createPDF(exportData(),G),'pdf','application/pdf');showStatus('تم تجهيز مخطط PDF متجهي قابل للطباعة.')}
