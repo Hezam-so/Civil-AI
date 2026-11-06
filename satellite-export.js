@@ -13,6 +13,7 @@
  function safeRoads(roads){
   return (Array.isArray(roads)?roads:[]).slice(0,70).map((r,i)=>({
    name:typeof r.name==='string'?r.name.slice(0,80):'Road '+(i+1),
+   source:r.source==='OpenStreetMap'?'OpenStreetMap':'manual',
    width:Number.isFinite(Number(r.width))&&Number(r.width)>0&&Number(r.width)<=100?Number(r.width):null,
    points:(Array.isArray(r.points)?r.points:[]).slice(0,100).map(p=>({lat:Number(p.lat),lng:Number(p.lng)}))
   })).filter(r=>r.points.length>=2&&r.points.every(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng)&&Math.abs(p.lat)<=85&&Math.abs(p.lng)<=180));
