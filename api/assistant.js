@@ -135,7 +135,8 @@ async function userFor(req){
  return u.sessionVersion===s.version?u:null;
 }
 const secureOrigin=req=>req.headers.origin==='https://'+(req.headers['x-forwarded-host']||req.headers.host);
-const authReady=()=>!!(process.env.AI_GATEWAY_API_KEY||process.env.VERCEL_OIDC_TOKEN);
+const gatewayToken=req=>process.env.AI_GATEWAY_API_KEY||req?.headers?.['x-vercel-oidc-token']||process.env.VERCEL_OIDC_TOKEN;
+const authReady=req=>!!gatewayToken(req);
 function extractNavigation(question){
  if(!/(افتح|انتقل|اذهب|اذهبي|روح|وديني|اعرض|open|navigate|go to|show me)/i.test(question))return [];
  const options=[
@@ -157,8 +158,8 @@ function offlineAnswer(question){
  const msg=moves.length?'يمكنني فتح القسم المطلوب بعد موافقتك.':'يمكنني تنفيذ حسابات دقيقة بالأدوات المضمنة مثل ردود الأفعال والعزم للكمرة البسيطة، حجم الخرسانة، ضغط القاعدة المبدئي، حديد التسليح، خصائص القطاع وتحويل الوحدات.';
  return {answer:msg+' لكن التحليل اللغوي الحر يحتاج تفعيل اتصال نموذج الذكاء الاصطناعي عبر Vercel AI Gateway. استخدم زر «حاسبة هندسية» لإدخال أرقام المسألة بصورة منظمة، أو اختر أداة الحساب.',actions:moves,calculations:[],mode:'tools-only'};
 }
-async function askModel(messages){
- const token=process.env.AI_GATEWAY_API_KEY||process.env.VERCEL_OIDC_TOKEN;
+async function askModel(messages,req){
+ const token=gatewayToken(req);
  const response=await fetch('https://ai-gateway.vercel.sh/v1/chat/completions',{
   method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
   signal:AbortSignal.timeout(25000),
@@ -179,7 +180,7 @@ async function askModel(messages){
 module.exports=async function(req,res){
  res.setHeader('Cache-Control','private,no-store');
  res.setHeader('X-Content-Type-Options','nosniff');
- if(req.method==='GET')return respond(res,200,{enabled:authReady(),model:authReady()?MODEL:null,calculators:true,actionsRequireConfirmation:true,dailyAILimit:null});
+ if(req.method==='GET')return respond(res,200,{enabled:authReady(req),model:authReady(req)?MODEL:null,calculators:true,actionsRequireConfirmation:true,dailyAILimit:null});
  if(req.method!=='POST')return respond(res,405,{error:'Method not allowed'});
  if(!secureOrigin(req))return respond(res,403,{error:'يجب إرسال الطلب من الموقع الأصلي.'});
  if(Number(req.headers['content-length']||0)>4200000)return respond(res,413,{error:'حجم الطلب كبير جدًا.'});
@@ -198,7 +199,7 @@ module.exports=async function(req,res){
   const image=String(input.attachmentDataUrl||'');
   if(image&&(!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(image)||image.length>3900000))
    return respond(res,415,{error:'المرفقات المدعومة حاليًا: صورة PNG أو JPEG أو WebP لا تتجاوز 2.8 MB. لا ترفع PDF هنا.'});
-  if(!authReady())return respond(res,200,offlineAnswer(question));
+  if(!authReady(req))return respond(res,200,offlineAnswer(question));
   const history=Array.isArray(input.history)?input.history.slice(-6).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string').map(m=>({role:m.role,content:m.content.slice(0,1600)})):[];
   const system='أنت مساعد Civil AI للهندسة المدنية. أجب بلغة المستخدم (العربية أو الإنجليزية) بوضوح. استخدم الأدوات البرمجية المعطاة لحساب أي مسألة مدعومة: لا تنفذ حسابات إنشائية عددية من الذاكرة إذا توفرت لها أداة. وضح الفروض والوحدات والخطوات والتحقق المعقول من النتائج. إذا نقصت بيانات، اسأل عنها ولا تفترض أبعادًا أو أحمالًا أو كودًا. لا تدّعِ إجراء تحليل FEM أو قراءة ملف DWG/Robot أو فحص تصميم معتمد إذا لم تنفذه أداة فعلية. لا تختلق بنود كود أو مراجع. تستطيع اقتراح التنقل أو تعبئة نموذج عبر open_tool وprepare_main_form فقط؛ لا تقل إنه تم تطبيق التغييرات، بل إنه يحتاج موافقة المستخدم. لا تحفظ أو تحذف أو ترسل بيانات. أعط خلاصة موجزة وفوائد وحدود النتائج. الحسابات الأولية لا تغني عن مهندس مرخص.';
   const content=image?[{type:'text',text:question},{type:'image_url',image_url:{url:image,detail:'low'}}]:question;
@@ -206,7 +207,7 @@ module.exports=async function(req,res){
   const calculations=[],actions=[];
   let answer='';
   for(let turn=0;turn<3;turn++){
-   const reply=await askModel(messages);
+   const reply=await askModel(messages,req);
    if(Array.isArray(reply.tool_calls)&&reply.tool_calls.length){
     const calls=reply.tool_calls.slice(0,6);
     messages.push({role:'assistant',content:reply.content||null,tool_calls:calls});
