@@ -15,6 +15,17 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
 #civil-auth-overlay .auth-note{font-size:12px;color:#b8cbe0}#civil-auth-overlay .auth-error{color:#ff9c9c;margin-top:12px;white-space:pre-wrap}
 #civil-user-menu{position:fixed;z-index:10000;bottom:15px;left:15px;padding:9px 12px;background:#112d45;border:1px solid #4b718c;border-radius:12px;color:#e8f6ff;box-shadow:0 4px 30px #0006;display:flex;gap:10px;align-items:center;font:13px system-ui,Tahoma,sans-serif;direction:rtl}
 #civil-user-menu button{cursor:pointer;background:#1f5070;border:1px solid #4c789a;color:white;border-radius:8px;padding:7px 10px}
+
+/* Civil AI engineer identity shown on every account-protected page. */
+#civil-owner-banner{box-sizing:border-box;position:fixed;top:calc(env(safe-area-inset-top, 0px) + 10px);left:12px;z-index:2147483647;max-width:calc(100vw - 24px);padding:9px 12px;border:1px solid rgba(80,182,216,.43);border-radius:12px;background:rgba(8,27,48,.94);color:#f1faff;box-shadow:0 5px 24px rgba(0,0,0,.23);backdrop-filter:blur(8px);direction:ltr;text-align:left;font:600 12px/1.5 system-ui,Segoe UI,Tahoma,Arial,sans-serif}
+#civil-owner-banner .civil-owner-first{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:11px;row-gap:1px}
+#civil-owner-banner .civil-owner-en{font-size:13px;font-weight:750;white-space:nowrap}
+#civil-owner-banner .civil-owner-phone{font-size:12px;color:#72d9f1;text-decoration:none;white-space:nowrap;unicode-bidi:isolate}
+#civil-owner-banner .civil-owner-phone:hover{text-decoration:underline}
+#civil-owner-banner .civil-owner-ar{display:block;margin-top:1px;color:#b6cedf;font:400 10px/1.45 Tahoma,Arial,sans-serif;direction:rtl;unicode-bidi:isolate;text-align:left}
+body.civil-authenticated{padding-top:68px!important}
+body.civil-auth-screen #civil-auth-overlay{padding-top:90px}
+@media(max-width:420px){#civil-owner-banner{padding:7px 10px;left:9px;top:calc(env(safe-area-inset-top, 0px) + 8px)}#civil-owner-banner .civil-owner-en{font-size:12px}#civil-owner-banner .civil-owner-phone{font-size:11px}body.civil-authenticated{padding-top:66px!important}}
 `;
  document.head.append(style);
  const api=async(action,body)=>{
@@ -74,13 +85,21 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
    if(validEmail(input.value))timeout=setTimeout(check,300);
    return {check};
  }
+ const ownerBadge=document.createElement('aside');
+ ownerBadge.id='civil-owner-banner';
+ ownerBadge.setAttribute('aria-label','معلومات التواصل مع المهندس حزام سليمان');
+ const ownerFirst=document.createElement('div');ownerFirst.className='civil-owner-first';
+ const ownerEn=document.createElement('span');ownerEn.className='civil-owner-en';ownerEn.textContent='Eng. Hezam Suleiman';
+ const ownerPhone=document.createElement('a');ownerPhone.className='civil-owner-phone';ownerPhone.href='tel:+967775264654';ownerPhone.textContent='+967775264654';ownerPhone.setAttribute('aria-label','Call +967775264654');
+ const ownerAr=document.createElement('small');ownerAr.className='civil-owner-ar';ownerAr.textContent='المهندس حزام سليمان';
+ ownerFirst.append(ownerEn,ownerPhone);ownerBadge.append(ownerFirst,ownerAr);
  const panel=document.createElement('div');panel.id='civil-auth-overlay';
  const show=(mode='login',initialError='')=>{
   document.body.classList.remove('civil-authenticated');document.body.classList.add('civil-auth-screen');
   panel.replaceChildren();
   const card=document.createElement('div');card.className='auth-card';
   card.innerHTML='<h1>Civil AI <span style="color:#59dbea">| حسابك الخاص</span></h1><p>سجّل الدخول للاطلاع على مشاريعك الخاصة من هذا الحساب.</p><form id="civil-auth-form"><div id="civil-name-field"><label for="civil-name">اسم المستخدم</label><input id="civil-name" type="text" maxlength="90" autocomplete="name" placeholder="الاسم الكامل"></div><label for="civil-email">البريد الإلكتروني</label><input id="civil-email" type="email" autocomplete="email" required placeholder="name@example.com"><label for="civil-password" id="civil-password-label">كلمة المرور</label><input id="civil-password" type="password" autocomplete="current-password" required minlength="6" maxlength="128"><div style="margin-top:17px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button id="civil-auth-submit" type="submit">تسجيل الدخول</button><button id="civil-auth-toggle" type="button" class="auth-switch">إنشاء حساب جديد</button><button id="civil-forgot" type="button" class="auth-switch">نسيت كلمة المرور؟</button></div><p id="civil-email-status" class="auth-note" role="status"></p><div class="auth-error" role="alert" id="civil-auth-error"></div></form><p class="auth-note" style="margin-top:16px">كل حساب له مساحة مشاريع خاصة. استخدم بريدك الشخصي. تأكيد ملكية البريد عند إنشاء الحساب غير مفعّل بعد. استعادة كلمة المرور برمز بريد إلكتروني تتطلب تفعيل مزوّد الإرسال. لا تستخدم المنصة لملفات عملاء حساسة قبل اكتمال الحماية والاختبارات.</p>';
-  panel.append(card);
+  panel.append(card,ownerBadge);
   let register=mode==='register';
   const n=card.querySelector('#civil-name-field'),pw=card.querySelector('#civil-password'),btn=card.querySelector('#civil-auth-submit'),toggle=card.querySelector('#civil-auth-toggle'),err=card.querySelector('#civil-auth-error');
   const sync=()=>{n.style.display=register?'block':'none';btn.textContent=register?'إنشاء الحساب':'تسجيل الدخول';toggle.textContent=register?'لدي حساب بالفعل':'إنشاء حساب جديد';pw.autocomplete=register?'new-password':'current-password';pw.minLength=register?8:6;card.querySelector('#civil-password-label').textContent=register?'كلمة مرور جديدة (8 أحرف أو أرقام على الأقل)':'كلمة المرور الخاصة بحسابك'};
@@ -133,7 +152,7 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
       '<div id="civil-reset-confirm-error" class="auth-error" role="alert"></div>'+
     '</form>'+
     '<button type="button" id="civil-reset-back" class="auth-switch" style="margin-top:16px">العودة إلى تسجيل الدخول</button>';
-  panel.append(card);
+  panel.append(card,ownerBadge);
   document.body.append(panel);
   const email=card.querySelector('#civil-recovery-email');
   const code=card.querySelector('#civil-recovery-code');
@@ -195,6 +214,7 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   const name=document.createElement('span');name.textContent='حساب: '+user.name;
   const logout=document.createElement('button');logout.textContent='تسجيل خروج';
   logout.onclick=async()=>{logout.disabled=true;try{await api('logout',{});location.reload()}catch(e){alert(e.message);logout.disabled=false}};
+  document.body.append(ownerBadge);
   bar.append(name,logout);document.body.append(bar);
   window.dispatchEvent(new CustomEvent('civil-auth-ready',{detail:{user}}));
  };
