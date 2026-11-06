@@ -173,7 +173,7 @@ async function askModel(messages,req){
  const response=await fetch('https://ai-gateway.vercel.sh/v1/chat/completions',{
   method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
   signal:AbortSignal.timeout(25000),
-  body:JSON.stringify({model:MODEL,messages,tools,tool_choice:'auto',max_completion_tokens:2400})
+  body:JSON.stringify({model:MODEL,messages,tools,tool_choice:'auto',max_completion_tokens:3000})
  });
  if(!response.ok){
   console.error('Civil AI gateway status',response.status);
@@ -210,25 +210,38 @@ module.exports=async function(req,res){
   if(image&&(!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(image)||image.length>3900000))
    return respond(res,415,{error:'المرفقات المدعومة حاليًا: صورة PNG أو JPEG أو WebP لا تتجاوز 2.8 MB. لا ترفع PDF هنا.'});
   if(!authReady(req))return respond(res,200,offlineAnswer(question));
-  const history=Array.isArray(input.history)?input.history.slice(-6).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string').map(m=>({role:m.role,content:m.content.slice(0,1600)})):[];
-  const system='أنت مساعد Civil AI للهندسة المدنية. أجب بلغة المستخدم (العربية أو الإنجليزية) بوضوح. استخدم الأدوات البرمجية المعطاة لحساب أي مسألة مدعومة: لا تنفذ حسابات إنشائية عددية من الذاكرة إذا توفرت لها أداة. وضح الفروض والوحدات والخطوات والتحقق المعقول من النتائج. إذا نقصت بيانات، اسأل عنها ولا تفترض أبعادًا أو أحمالًا أو كودًا. لا تدّعِ إجراء تحليل FEM أو قراءة ملف DWG/Robot أو فحص تصميم معتمد إذا لم تنفذه أداة فعلية. لا تختلق بنود كود أو مراجع. تستطيع اقتراح التنقل أو تعبئة نموذج عبر open_tool وprepare_main_form فقط؛ لا تقل إنه تم تطبيق التغييرات، بل إنه يحتاج موافقة المستخدم. لا تحفظ أو تحذف أو ترسل بيانات. أعط خلاصة موجزة وفوائد وحدود النتائج. الحسابات الأولية لا تغني عن مهندس مرخص.';
+  const history=Array.isArray(input.history)?input.history.slice(-10).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string').map(m=>({role:m.role,content:m.content.slice(0,2500)})):[];
+  const guide=knowledge.pages.map(p=>p.name+' @ '+p.route+' — '+p.summary).join('\n');
+  const related=knowledge.lookup(question).map(p=>p.name+': '+p.summary+' ؛ حدود: '+p.limits).join('\n');
+  const system=[
+   'أنت مساعد Civil AI للهندسة المدنية. أجب بلغة المستخدم العربية أو الإنجليزية بدقة ووضوح. المعرفة بالبرنامج من الدليل المرفق لا من التخمين.',
+   'عند حل مسألة رقمية مدعومة استدع أداة الحساب أولاً ثم اشرح النتائج والمعادلات والوحدات والافتراضات والقيود. لا تخترع مدخلات ناقصة أو حدود أكواد؛ اسأل عند الحاجة.',
+   'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح القسم، وprepare_main_form لتعبئة قيم الحاسبات الرئيسية. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير مشاريعه من تلقاء نفسك.',
+   'لا تدعِ القيام بتحليل FEM أو تنفيذ Robot أو قراءة ملف DWG إن لم تنفذ أدوات موثوقة. الصورة يمكن وصفها دون اختلاق الأبعاد. تصميم الخلطة الخرسانية وكود البناء يحتاجان مراجعة مهندس. لا تختلق مصادر.',
+   'إن كانت المسألة خارج نطاق الحاسبات الرقمية فقدم منهج الحل وتحقق من الأبعاد ومعلومات التصميم، ولا تدع الفحص المبدئي فحصاً معتمداً.',
+   'الذكاء يستخدم نموذجاً مجانياً؛ لا تستخدم نموذجاً مدفوعاً احتياطياً.',
+   'صفحات الموقع: '+guide,
+   'الصفحات المتصلة بالسؤال والحدود: '+related
+  ].join('\n');
   const content=image?[{type:'text',text:question},{type:'image_url',image_url:{url:image,detail:'low'}}]:question;
   const messages=[{role:'system',content:system},...history,{role:'user',content}];
   const calculations=[],actions=[];
   let answer='';
-  for(let turn=0;turn<3;turn++){
+  for(let turn=0;turn<4;turn++){
    const reply=await askModel(messages,req);
    if(Array.isArray(reply.tool_calls)&&reply.tool_calls.length){
-    const calls=reply.tool_calls.slice(0,6);
+    const calls=reply.tool_calls.slice(0,8);
     messages.push({role:'assistant',content:reply.content||null,tool_calls:calls});
     for(const call of calls){
      let result;
      try{
       const args=JSON.parse(call.function?.arguments||'{}'),name=String(call.function?.name||'');
-      if(['open_tool','prepare_main_form'].includes(name)){
-       result=act(name,args);if(actions.length<4)actions.push(result);
-      }else if(Object.hasOwn(specs,name)){
-       result=calc(name,args);if(calculations.length<4)calculations.push(result);
+      if(['open_tool','prepare_main_form','open_page'].includes(name)){
+       result=act(name,args);if(actions.length<6)actions.push(result);
+      }else if(Object.hasOwn(advanced.specs,name)){
+       result=advanced.calculate(name,args);if(calculations.length<6)calculations.push(result);
+      }else if(Object.hasOwn(basicSpecs,name)){
+       result=calc(name,args);if(calculations.length<6)calculations.push(result);
       }else result={error:'أداة غير متاحة.'};
      }catch(e){result={error:String(e.message).slice(0,180)}}
      messages.push({role:'tool',tool_call_id:call.id,content:JSON.stringify(result)});
