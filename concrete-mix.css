@@ -1,0 +1,47 @@
+/* Concrete material takeoff additions, scoped to the original calculator. */
+#concrete .cm-panel { margin: 22px 0 10px; padding: 18px; border: 1px solid #2c4c68; border-radius: 14px; background: #0c1c30; }
+#concrete .cm-panel h3 { margin: 0 0 12px; color: #a8e9ff; }
+#concrete .cm-panel p { color: #a5b9cb; line-height: 1.6; font-size: 13px; }
+#concrete .cm-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px 14px; }
+#concrete .cm-grid label, #concrete .cm-inline { display: flex; flex-direction: column; gap: 5px; color: #aec8dd; font-size: 12px; margin: 0; }
+#concrete .cm-grid input, #concrete .cm-grid select, #concrete .cm-inline input, #concrete .cm-inline select { width: 100%; min-width: 0; padding: 10px; font-size: 14px; }
+#concrete .cm-wide { grid-column: 1 / -1; }
+#concrete #cmOptional { padding-top: 10px; }
+#concrete .cm-check { display: flex; align-items: center; gap: 9px; padding: 9px 0; cursor: pointer; font-weight: 750; }
+#concrete .cm-check input { width: 19px; height: 19px; accent-color: #38bdf8; }
+#concrete .cm-add-line { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr) auto; gap: 9px; align-items: end; }
+#concrete .cm-add-line button { white-space: nowrap; padding: 11px; }
+#concrete .cm-select-label { font-size: 12px; display: flex; flex-direction: column; gap: 5px; }
+#concrete .cm-select-label select { width: 100%; min-width: 0; }
+#concrete .cm-item { background: #13283d; border: 1px solid #30516d; padding: 12px; border-radius: 12px; margin: 10px 0; }
+#concrete .cm-item-head { display: flex; justify-content: space-between; align-items: start; gap: 10px; }
+#concrete .cm-item-head strong { display: block; color: #d9f5ff; font-size: 14px; }
+#concrete .cm-item-head small { display: block; color: #a3bcd0; margin-top: 5px; line-height: 1.5; }
+#concrete .cm-item-head button { margin: 0; flex-shrink: 0; }
+#concrete .cm-row-controls { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 9px; margin-top: 12px; }
+#concrete .cm-little { font-size: 12px; color: #9dbad0; }
+#concrete .cm-table-wrap { overflow-x: auto; }
+#concrete .cm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+#concrete .cm-table th, #concrete .cm-table td { padding: 11px 8px; border-bottom: 1px solid #31455d; vertical-align: top; text-align: start; }
+#concrete .cm-table th { color: #9de4fc; white-space: nowrap; font-size: 12px; }
+#concrete .cm-table td:not(:first-child) { white-space: nowrap; font-variant-numeric: tabular-nums; }
+#concrete .cm-table td strong { display: block; color: #f0f9ff; }
+#concrete .cm-table td small { display: block; color: #92b4ca; margin-top: 5px; font-size: 11px; line-height: 1.5; }
+#concrete .cm-table td .cm-line-extra { color: #80d4e9; }
+#concrete .cm-error { color: #ffc3bd; background: #492522; border: 1px solid #9b3b35; padding: 12px; border-radius: 9px; margin: 12px 0; }
+#concrete [hidden] { display: none !important; }
+#concrete .cm-details { margin-top: 10px; border-top: 1px solid #2b4358; padding-top: 12px; }
+#concrete .cm-details summary { cursor: pointer; color: #9bdafa; margin-bottom: 12px; }
+#concrete .cm-output-title { border-bottom: 1px solid #31455d; padding-bottom: 10px; margin-top: 22px; }
+#concrete .cm-note { font-size: 12px; color: #acc3d4; line-height: 1.65; }
+@media(max-width: 800px) {
+ #concrete .cm-add-line { grid-template-columns: 1fr 1fr; }
+ #concrete .cm-add-line button { grid-column: 1 / -1; }
+ #concrete .cm-row-controls { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+@media(max-width: 500px) {
+ #concrete .cm-grid, #concrete .cm-row-controls { grid-template-columns: 1fr; }
+ #concrete .cm-panel { padding: 12px; }
+ #concrete .cm-table { font-size: 11px; }
+ #concrete .cm-table th, #concrete .cm-table td { padding: 8px 5px; }
+}
