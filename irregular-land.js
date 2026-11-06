@@ -5,6 +5,39 @@ const G=window.CivilLandGeometry;
 if(!G){$('status').textContent='لم يتم تحميل محرك الحساب.';return}
 const NS='http://www.w3.org/2000/svg';
 let mode='coordinates',points=[{x:'0',y:'0'},{x:'35',y:'0'},{x:'44',y:'22'},{x:'20',y:'35'},{x:'0',y:'20'}],triangles=[{a:'15',b:'20',c:'25'}],latest=null,diagramTransform=null;
+let drawTool='move',selected=-1,dragging=null,undoStack=[],showLengths=true,showAngles=true,snapGrid=false;
+const recordUndo=()=>{undoStack.push(points.map(p=>({...p})));if(undoStack.length>30)undoStack.shift()};
+const measureAngle=(idx)=>{
+ if(points.length<3||idx<0||idx>=points.length)return NaN;
+ const n=points.length,p=points[idx],pre=points[(idx+n-1)%n],next=points[(idx+1)%n];
+ const x=Number(p.x),y=Number(p.y),px=Number(pre.x),py=Number(pre.y),nx=Number(next.x),ny=Number(next.y);
+ if(![x,y,px,py,nx,ny].every(Number.isFinite))return NaN;
+ const signed=points.reduce((sum,a,i)=>{const b=points[(i+1)%n];return sum+Number(a.x)*Number(b.y)-Number(b.x)*Number(a.y)},0);
+ const orientation=Math.sign(signed)||1;
+ const inX=x-px,inY=y-py,outX=nx-x,outY=ny-y;
+ const turn=Math.atan2(inX*outY-inY*outX,inX*outX+inY*outY)*180/Math.PI;
+ return (180-orientation*turn+360)%360||360;
+};
+const syncEditor=()=>{
+ const active=mode==='coordinates'&&selected>=0&&selected<points.length;
+ $('selectedTitle').textContent=active?'الزاوية P'+(selected+1)+' — اختر الإحداثيات أو الزاوية':'اضغط على زاوية من الرسم لتعديلها';
+ for(const id of ['selectedX','selectedY','selectedAngle'])$(id).disabled=!active;
+ if(!active)return;
+ $('selectedX').value=points[selected].x;
+ $('selectedY').value=points[selected].y;
+ const a=measureAngle(selected);$('selectedAngle').value=Number.isFinite(a)?Number(a.toFixed(2)):'';
+};
+const pointCoords=(e)=>{
+ const rect=$('landDiagram').getBoundingClientRect();
+ const sx=(e.clientX-rect.left)*480/rect.width,sy=(e.clientY-rect.top)*330/rect.height;
+ return {sx,sy};
+};
+const worldCoords=(sx,sy)=>{
+ const t=diagramTransform||{scale:5,centerX:0,centerY:0};
+ const x=t.centerX+(sx-240)/t.scale,y=t.centerY-(sy-165)/t.scale;
+ return {x:snapGrid?Math.round(x):Number(x.toFixed(3)),y:snapGrid?Math.round(y):Number(y.toFixed(3))};
+};
+
 const fmt=(v,dec=4)=>Number.isFinite(v)?new Intl.NumberFormat('en-US',{maximumFractionDigits:dec}).format(v):'—';
 const el=(tag,attrs={},content)=>{const a=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))a.setAttribute(k,String(v));if(content!==undefined)a.textContent=String(content);return a};
 function showStatus(message,error=false){const s=$('status');s.classList.toggle('error',!!error);s.textContent=message}
@@ -18,7 +51,7 @@ function addTableRow(body,i,values,kind){
   td.append(input);tr.append(td);
  }
  const td=document.createElement('td'),btn=document.createElement('button');btn.type='button';btn.textContent='×';btn.title='حذف';btn.setAttribute('aria-label','حذف صف '+(i+1));
- btn.onclick=()=>{const target=kind==='point'?points:triangles;target.splice(i,1);renderInputs();update()};
+ btn.onclick=()=>{if(kind==='point')recordUndo();const target=kind==='point'?points:triangles;target.splice(i,1);if(kind==='point'&&selected>=target.length)selected=-1;renderInputs();update()};
  td.append(btn);tr.append(td);body.append(tr);
 }
 function renderInputs(){
@@ -43,13 +76,16 @@ function drawGrid(svg){
 }
 function drawPolygon(result){
  const svg=$('landDiagram');svg.replaceChildren();drawGrid(svg);
- if(!points.length)return;
+ if(!points.length){diagramTransform={scale:5,centerX:0,centerY:0};return;}
  const valid=points.map(p=>({x:parse(p.x),y:parse(p.y)})).filter(p=>Number.isFinite(p.x)&&Number.isFinite(p.y));
  if(valid.length===0)return;
  const xs=valid.map(p=>p.x),ys=valid.map(p=>p.y);
  const minX=Math.min(...xs),maxX=Math.max(...xs),minY=Math.min(...ys),maxY=Math.max(...ys);
- const width=Math.max(maxX-minX,10),height=Math.max(maxY-minY,10),scale=Math.min(396/width,238/height,20);
- const centerX=(minX+maxX)/2,centerY=(minY+maxY)/2;
+ const width=Math.max(maxX-minX,10),height=Math.max(maxY-minY,10);
+ const fit=Math.min(396/width,238/height,20);
+ const scale=dragging?.transform?.scale||fit;
+ const centerX=dragging?.transform?.centerX??(minX+maxX)/2;
+ const centerY=dragging?.transform?.centerY??(minY+maxY)/2;
  const trans=p=>({x:240+(p.x-centerX)*scale,y:165-(p.y-centerY)*scale});
  diagramTransform={scale,centerX,centerY};
  const screen=valid.map(trans);
@@ -66,9 +102,22 @@ function drawPolygon(result){
    svg.append(el('text',{x:centroid.x,y:centroid.y,fill:'#9eecf3','font-size':10,'text-anchor':'middle','paint-order':'stroke',stroke:'#081929','stroke-width':3},'△'));
   }
  }
+ if(result?.valid&&showLengths&&screen.length>1){
+   screen.forEach((p,i)=>{
+     const q=screen[(i+1)%screen.length],a=valid[i],b=valid[(i+1)%valid.length];
+     const distance=Math.hypot(b.x-a.x,b.y-a.y);
+     const tx=(p.x+q.x)/2,ty=(p.y+q.y)/2;
+     svg.append(el('text',{x:tx,y:ty-7,'text-anchor':'middle','font-size':10,fill:'#ffc870','paint-order':'stroke',stroke:'#081929','stroke-width':3},fmt(distance,2)+' m'));
+   });
+ }
  screen.forEach((p,i)=>{
-  svg.append(el('circle',{cx:p.x,cy:p.y,r:4.6,fill:'#ffdd83',stroke:'#162838','stroke-width':1.7}));
-  svg.append(el('text',{x:p.x+7,y:p.y-8,'font-size':12,fill:'#f7f5e8','paint-order':'stroke',stroke:'#061827','stroke-width':3},'P'+(i+1)));
+   if(result?.valid&&showAngles){
+     const angle=measureAngle(i);
+     if(Number.isFinite(angle))svg.append(el('text',{x:p.x+10,y:p.y+17,'font-size':10,fill:'#78e8c7','paint-order':'stroke',stroke:'#081929','stroke-width':3},fmt(angle,1)+'°'));
+   }
+   svg.append(el('circle',{cx:p.x,cy:p.y,r:selected===i?8:5.5,fill:selected===i?'#ff9654':'#ffdd83',stroke:'#162838','stroke-width':1.7}));
+   svg.append(el('circle',{cx:p.x,cy:p.y,r:17,class:'vertex-hit','data-index':i,'aria-label':'تحريك الزاوية P'+(i+1)}));
+   svg.append(el('text',{x:p.x+9,y:p.y-9,'font-size':12,fill:'#f7f5e8','paint-order':'stroke',stroke:'#061827','stroke-width':3},'P'+(i+1)));
  });
  svg.append(el('text',{x:16,y:317,'font-size':11,fill:'#9ebed0'},'رسم تخطيطي متناسب · أدخل الإحداثيات الحقيقية للدقة'));
 }
@@ -88,12 +137,14 @@ function drawTriangles(resultRows){
 function update(){
  latest=null;
  if(mode==='coordinates'){
+  if(selected>=points.length)selected=-1;
   const parsed=points.map(p=>({x:parse(p.x),y:parse(p.y)}));
   let result;
   if(parsed.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))
     result={valid:false,error:'coordinates'};
   else result=G.polygonArea(parsed);
   drawPolygon(result);
+  if(!dragging)syncEditor();
   if(!result.valid){
    const errors={vertices:'أدخل ثلاث زوايا على الأقل.',coordinates:'أكمل الإحداثيات الرقمية الصحيحة لكل زاوية.',limit:'الحد الأقصى 100 زاوية.',duplicate:'هناك زاويتان متجاورتان متطابقتان أو ضلع طوله صفر.',crossing:'حدود الأرض تتقاطع أو تلامس نفسها. راجع ترتيب الزوايا.',zero:'المضلع ليس له مساحة أفقية قابلة للحساب.'};
    showStatus(errors[result.error]||'تعذر حساب المساحة. راجع الإحداثيات.',true);
@@ -124,6 +175,7 @@ function setMode(next){
  $('coordinateMode').hidden=next!=='coordinates';$('triangleMode').hidden=next!=='triangles';
  $('modeCoordinates').setAttribute('aria-pressed',String(next==='coordinates'));
  $('modeTriangles').setAttribute('aria-pressed',String(next==='triangles'));
+ $('drawingTools').hidden=next!=='coordinates';$('selectedEditor').hidden=next!=='coordinates';
  $('sketchHelp').textContent=next==='coordinates'?'حدود الأرض بالذهبي والمثلثات التوضيحية بالأزرق. يمكنك إضافة زاوية بالنقر على الرسم.':'المثلثات المرسومة توضيحية وليست بمقياس أضلاع حقيقي؛ أدخل الأطوال المقاسة في الجدول.';
  update();
 }
@@ -131,26 +183,106 @@ $('modeCoordinates').onclick=()=>setMode('coordinates');
 $('modeTriangles').onclick=()=>setMode('triangles');
 $('addPoint').onclick=()=>{
  if(points.length>=100)return showStatus('الحد الأقصى 100 زاوية.',true);
- const n=points.length;
+ recordUndo();const n=points.length;
  points.push(n?{x:String((parse(points[n-1].x)||0)+10),y:String(parse(points[n-1].y)||0)}:{x:'0',y:'0'});
  renderInputs();update();
 };
-$('loadExample').onclick=()=>{points=[{x:'0',y:'0'},{x:'35',y:'0'},{x:'44',y:'22'},{x:'20',y:'35'},{x:'0',y:'20'}];renderInputs();update()};
-$('clearPoints').onclick=()=>{if(!confirm('هل تريد مسح جميع الزوايا؟'))return;points=[];renderInputs();update()};
+$('loadExample').onclick=()=>{recordUndo();points=[{x:'0',y:'0'},{x:'35',y:'0'},{x:'44',y:'22'},{x:'20',y:'35'},{x:'0',y:'20'}];renderInputs();update()};
+$('clearPoints').onclick=()=>{if(!confirm('هل تريد مسح جميع الزوايا؟'))return;recordUndo();points=[];selected=-1;renderInputs();update()};
 $('addTriangle').onclick=()=>{if(triangles.length>=100)return showStatus('الحد الأقصى 100 مثلث.',true);triangles.push({a:'15',b:'20',c:'25'});renderInputs();update()};
 $('exampleTriangles').onclick=()=>{triangles=[{a:'3',b:'4',c:'5'},{a:'5',b:'5',c:'6'}];renderInputs();update()};
 $('clearTriangles').onclick=()=>{if(!confirm('هل تريد مسح المثلثات؟'))return;triangles=[];renderInputs();update()};
-$('landDiagram').addEventListener('click',e=>{
- if(mode!=='coordinates'||!diagramTransform||points.length>=100)return;
- const svg=$('landDiagram'),rect=svg.getBoundingClientRect();
- if(rect.width<=0||rect.height<=0)return;
- const sx=(e.clientX-rect.left)*480/rect.width,sy=(e.clientY-rect.top)*330/rect.height;
- if(sx<10||sx>470||sy<10||sy>320)return;
- const {scale,centerX,centerY}=diagramTransform;
- const x=centerX+(sx-240)/scale,y=centerY-(sy-165)/scale;
- points.push({x:String(Number(x.toFixed(3))),y:String(Number(y.toFixed(3)))});
- renderInputs();update();
+
+const changeTool=(tool)=>{
+ drawTool=tool;
+ $('drawAdd').setAttribute('aria-pressed',String(tool==='add'));
+ $('drawMove').setAttribute('aria-pressed',String(tool==='move'));
+ $('landDiagram').classList.toggle('editing',tool==='add');
+};
+$('drawAdd').onclick=()=>changeTool('add');
+$('drawMove').onclick=()=>changeTool('move');
+$('drawClose').onclick=()=>{changeTool('move');showStatus('تم إغلاق وضع إضافة النقاط. يُغلق المضلع تلقائيًا إذا كان صالحًا.')};
+$('drawUndo').onclick=()=>{
+ if(!undoStack.length)return showStatus('لا توجد حركة سابقة للتراجع.');
+ points=undoStack.pop();selected=-1;renderInputs();update();
+};
+$('showLengths').onchange=e=>{showLengths=e.target.checked;update()};
+$('showAngles').onchange=e=>{showAngles=e.target.checked;update()};
+$('snapGrid').onchange=e=>{snapGrid=e.target.checked};
+$('selectedX').onchange=$('selectedY').onchange=e=>{
+ if(selected<0||selected>=points.length)return;
+ const key=e.target.id==='selectedX'?'x':'y';
+ const val=parse(e.target.value);
+ if(!Number.isFinite(val))return showStatus('إحداثيات غير صالحة.',true);
+ recordUndo();points[selected][key]=String(val);renderInputs();update();
+};
+$('selectedAngle').onchange=e=>{
+ if(selected<0||points.length<3)return;
+ const desired=parse(e.target.value),before=measureAngle(selected),n=points.length;
+ if(!(desired>0&&desired<360)&&desired!==360)return showStatus('اختر زاوية داخلية أكبر من صفر وأقل من 360 درجة.',true);
+ if(!Number.isFinite(before))return showStatus('لا يمكن تحديد زاوية من هذه النقاط.',true);
+ const p=points[selected],next=points[(selected+1)%n];
+ const px=parse(p.x),py=parse(p.y),nx=parse(next.x),ny=parse(next.y);
+ const len=Math.hypot(nx-px,ny-py);
+ if(!(len>0))return;
+ const orientation=Math.sign(points.reduce((sum,a,i)=>{const b=points[(i+1)%n];return sum+parse(a.x)*parse(b.y)-parse(b.x)*parse(a.y)},0))||1;
+ const prev=points[(selected+n-1)%n];
+ const backDir=Math.atan2(parse(prev.y)-py,parse(prev.x)-px);
+ const nextDir=backDir-orientation*desired*Math.PI/180;
+ const candidate={x:String(Number((px+len*Math.cos(nextDir)).toFixed(4))),y:String(Number((py+len*Math.sin(nextDir)).toFixed(4)))};
+ const candidatePoints=points.map(o=>({x:parse(o.x),y:parse(o.y)}));
+ candidatePoints[(selected+1)%n]={x:Number(candidate.x),y:Number(candidate.y)};
+ const result=G.polygonArea(candidatePoints);
+ if(!result.valid)return showStatus('هذه الزاوية تنتج حدودًا غير صالحة؛ لم تُطبّق. عدّل الإحداثيات أو اختر زاوية أخرى.',true);
+ recordUndo();Object.assign(next,candidate);renderInputs();update();
+};
+const plot=$('landDiagram');
+plot.addEventListener('pointerdown',e=>{
+ if(mode!=='coordinates'||e.button>0||!diagramTransform)return;
+ const {sx,sy}=pointCoords(e);
+ const target=e.target.closest?.('[data-index]');
+ if(target){
+   selected=Number(target.dataset.index);
+   if(selected<0||selected>=points.length)return;
+   if(drawTool!=='move'){changeTool('move');}
+   recordUndo();
+   dragging={pointerId:e.pointerId,index:selected,transform:{...diagramTransform}};
+   plot.setPointerCapture?.(e.pointerId);
+   plot.classList.add('editing');
+   e.preventDefault();syncEditor();update();return;
+ }
+ if(drawTool==='add'){
+  if(points.length>=100)return showStatus('الحد الأقصى 100 زاوية.',true);
+  if(sx<5||sx>475||sy<5||sy>325)return;
+  const p=worldCoords(sx,sy);
+  recordUndo();points.push({x:String(p.x),y:String(p.y)});selected=points.length-1;
+  renderInputs();update();e.preventDefault();
+ }
 });
+plot.addEventListener('pointermove',e=>{
+ if(!dragging||dragging.pointerId!==e.pointerId||mode!=='coordinates')return;
+ const {sx,sy}=pointCoords(e),p=worldCoords(sx,sy);
+ if(!Number.isFinite(p.x)||!Number.isFinite(p.y))return;
+ points[dragging.index]={x:String(p.x),y:String(p.y)};
+ update();
+ e.preventDefault();
+});
+const finishDrag=e=>{
+ if(!dragging||dragging.pointerId!==e.pointerId)return;
+ const previous=dragging;
+ dragging=null;
+ try{if(plot.hasPointerCapture?.(e.pointerId))plot.releasePointerCapture(e.pointerId)}catch{}
+ if(drawTool!=='add')plot.classList.remove('editing');
+ const result=G.polygonArea(points.map(p=>({x:parse(p.x),y:parse(p.y)})));
+ if(!result.valid){
+   points=undoStack.pop()||points;
+   showStatus('السحب أدى إلى شكل متقاطع أو غير صالح؛ أُعيدت النقطة لموقعها السابق.',true);
+ }
+ renderInputs();update();
+ e.preventDefault();
+};
+plot.addEventListener('pointerup',finishDrag);
+plot.addEventListener('pointercancel',finishDrag);
 $('copyArea').onclick=async()=>{
  if(!latest)return showStatus('صحّح البيانات قبل نسخ النتيجة.',true);
  try{await navigator.clipboard.writeText(($('projectTitle').value||'مساحة أرض')+': '+fmt(latest.area,6)+' م²');showStatus('تم نسخ نتيجة المساحة.')}
