@@ -7,7 +7,8 @@ const crypto=require('node:crypto');
 const {get}=require('@vercel/blob');
 const knowledge=require('./civil-knowledge');
 const advanced=require('./civil-advanced');
-const MODEL=process.env.CIVIL_AI_AI_MODEL||'inclusionai/ling-3.0-flash-vl-free'; // free-listed multimodal
+const FREE_MODELS=new Set(['inclusionai/ling-3.0-flash-vl-free','reflection/beam-free']);
+const MODEL=FREE_MODELS.has(process.env.CIVIL_AI_AI_MODEL)?process.env.CIVIL_AI_AI_MODEL:'inclusionai/ling-3.0-flash-vl-free'; // Never select a paid model automatically
 const ttl=14*86400;
 const respond=(res,status,data)=>res.status(status).json(data);
 const num=(v,label,{min=0,max=1e9,zero=true}={})=>{
