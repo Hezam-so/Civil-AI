@@ -17,3 +17,11 @@ a.nav{text-decoration:none}
 .upload-shortcut-link{background:#1788bd;color:#fff;border:1px solid #38a5d5;text-decoration:none;border-radius:11px;padding:11px 16px;font-weight:750;display:inline-flex;align-items:center;justify-content:center}
 .upload-shortcut-link:hover{background:#207bab}
 @media(max-width:650px){.upload-shortcut{padding:15px}.upload-shortcut-link{width:100%}}
+
+/* Regional land-area calculator entry points */
+a.toolcard.land-card{color:inherit;text-decoration:none;cursor:pointer}
+a.toolcard.land-card:hover{border-color:#4ca8d0;background:#163c5b}
+.land-unit-shortcut{margin:18px 0;padding:16px 20px;display:flex;align-items:center;gap:13px;flex-wrap:wrap;background:#10314a;border:1px solid #3b85ae;border-radius:14px;color:#f1faff}
+.land-unit-shortcut strong{font-size:16px}.land-unit-shortcut p{color:#bfdeed;font-size:13px;margin:0;flex:1;min-width:210px}
+.land-unit-shortcut a{border:1px solid #45ade1;background:#167da9;padding:9px 12px;color:white;text-decoration:none;border-radius:10px;white-space:nowrap;font-weight:700}
+@media(max-width:650px){.land-unit-shortcut a{width:100%;text-align:center}}
