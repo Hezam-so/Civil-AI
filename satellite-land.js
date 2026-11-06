@@ -1,11 +1,24 @@
 'use strict';
 (()=>{
-const $=id=>document.getElementById(id),G=window.CivilSatelliteGeometry,L=window.L;
+const $=id=>document.getElementById(id),G=window.CivilSatelliteGeometry,L=window.L,Export=window.CivilSatelliteExport;
 if(!G||!L){$('mapStatus').textContent='تعذر تحميل مكتبة الخرائط أو محرك القياس. تأكد من الإنترنت، ثم حدّث الصفحة.';return}
 const fmt=(v,n=3)=>Number.isFinite(v)?new Intl.NumberFormat('en-US',{maximumFractionDigits:n}).format(v):'—';
 const parse=v=>String(v).trim()===''?NaN:Number(v);
 const unitFactors={m2:1,labna:44.44,dhamar:114.49,amran:64,taiz:20.25,ibb:56.25,ha:10000,acre:4046.8564224,ft2:.09290304};
 let coords=[],saved=[],undoStack=[],current=null,mode='add',markers=[],selected=-1;
+let roads=[],activeRoad=[],roadMarkers=[];
+const cloneRoads=()=>roads.map(r=>({name:r.name,width:r.width,points:r.points.map(p=>({...p}))}));
+const snapshot=()=>({coords:coords.map(p=>({...p})),roads:cloneRoads(),activeRoad:activeRoad.map(p=>({...p}))});
+const restore=state=>{
+ if(Array.isArray(state)){coords=state;roads=[];activeRoad=[];return}
+ coords=state.coords.map(p=>({...p}));roads=state.roads.map(r=>({name:r.name,width:r.width,points:r.points.map(p=>({...p}))}));activeRoad=state.activeRoad.map(p=>({...p}));
+};
+function downloadFile(content,extension,mime){
+ const title=String($('projectTitle').value||'civil-ai-land').trim().replace(/[^a-zA-Z0-9_-]+/g,'_').slice(0,45)||'civil-ai-land';
+ const blob=new Blob([content],{type:mime}),url=URL.createObjectURL(blob);
+ const link=document.createElement('a');link.href=url;link.download=title+'.'+extension;
+ document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
 const showStatus=(message,error=false)=>{
  const el=$('mapStatus');el.textContent=message;el.classList.toggle('error',Boolean(error));
 };
@@ -20,20 +33,22 @@ satellite.addTo(map);
 const boundary=L.polygon([],{color:'#f1b84c',weight:3,fillColor:'#18b6aa',fillOpacity:.17}).addTo(map);
 const edgeLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
+const roadLayer=L.layerGroup().addTo(map);
 function history(){
- undoStack.push(coords.map(p=>({...p})));
+ undoStack.push(snapshot());
  if(undoStack.length>45)undoStack.shift();
 }
 function selectMode(next){
  mode=next;
  $('addMode').setAttribute('aria-pressed',String(next==='add'));
  $('moveMode').setAttribute('aria-pressed',String(next==='move'));
- const el=map.getContainer();el.style.cursor=next==='add'?'crosshair':'grab';
- showStatus(next==='add'?'اضغط على زوايا الأرض بالترتيب لإضافة النقاط.':'حرّك الخريطة أو اسحب أي علامة مرقمة لتعديل زوايا الأرض.');
+ $('roadMode').setAttribute('aria-pressed',String(next==='road'));
+ const el=map.getContainer();el.style.cursor=next==='add'||next==='road'?'crosshair':'grab';
+ showStatus(next==='add'?'اضغط على زوايا الأرض بالترتيب لإضافة النقاط.':next==='road'?'اضغط على الخريطة لتحديد مسار الشارع، ثم اختر «إنهاء الشارع».':'حرّك الخريطة أو اسحب أي علامة مرقمة لتعديل زوايا الأرض.');
 }
 function angleLatLng(p){return [p.lat,p.lng]}
 function icon(i){
- return L.divIcon({className:'survey-pin'+(selected===i?' selected':''),html:'<div>'+(i+1)+'</div>',iconSize:[30,30],iconAnchor:[15,15]});
+ return L.divIcon({className:'survey-pin'+(selected===i?' selected':''),html:'<div>'+(i+1)+'</div>',iconSize:[28,28],iconAnchor:[14,14]});
 }
 function distanceTooltip(a,b){
  const length=G.distance(a,b);
@@ -52,14 +67,47 @@ function renderEdges(){
    .setLatLng(center).setContent(distanceTooltip(a,b)).addTo(edgeLayer);
  }
 }
+function renderRoads(){
+ roadLayer.clearLayers();roadMarkers=[];
+ const all=roads.map((r,i)=>({...r,roadIndex:i,active:false})).concat(activeRoad.length?[
+ {name:$('roadName').value.trim()||'Road '+(roads.length+1),points:activeRoad,roadIndex:-1,active:true}
+ ]:[]);
+ all.forEach(road=>{
+  if(road.points.length>=2){
+   L.polyline(road.points.map(angleLatLng),{color:road.active?'#f3cb79':'#fa7361',weight:4,opacity:.92,interactive:false,dashArray:road.active?'8 5':null}).addTo(roadLayer);
+  }
+  road.points.forEach((p,j)=>{
+   const mark=L.circleMarker(angleLatLng(p),{radius:4,color:'#ffffff',weight:1.1,fillColor:'#fa7361',fillOpacity:1}).addTo(roadLayer);
+   // Road vertices are editable by dragging a separate small Leaflet marker.
+   if(!road.active){
+    const dragIcon=L.divIcon({className:'survey-pin road-pin',html:'<div>•</div>',iconSize:[15,15],iconAnchor:[7.5,7.5]});
+    const edit=L.marker(angleLatLng(p),{icon:dragIcon,draggable:true,zIndexOffset:95}).addTo(roadLayer);
+    let before=null;
+    edit.on('dragstart',()=>{before=snapshot()});
+    edit.on('drag',e=>{
+     const v=e.target.getLatLng();
+     roads[road.roadIndex].points[j]={lat:Number(v.lat.toFixed(8)),lng:Number(v.lng.toFixed(8))};
+  
+    });
+    edit.on('dragend',()=>{
+     if(before){undoStack.push(before);if(undoStack.length>45)undoStack.shift()}
+     renderRoads();
+    });
+    roadMarkers.push(edit);
+   }
+  });
+ });
+ $('roadSummary').textContent=roads.length+' شوارع محفوظة في الرسم، '+activeRoad.length+' نقاط في الشارع الحالي. خطوط الشوارع مرسومة يدويًا (باللون الأحمر).';
+}
 function paint(){
  boundary.setLatLngs(coords.map(angleLatLng));
  renderEdges();markerLayer.clearLayers();markers=[];
+ renderRoads();
  coords.forEach((p,i)=>{
   const marker=L.marker(angleLatLng(p),{icon:icon(i),draggable:true,autoPan:true,zIndexOffset:120}).addTo(markerLayer);
   marker.on('click',()=>{selected=i;refresh()});
   let old=null;
-  marker.on('dragstart',()=>{old=coords.map(p=>({...p}));});
+  marker.on('dragstart',()=>{old=snapshot();});
   marker.on('drag',e=>{
    const pos=e.target.getLatLng();
    coords[i]={lat:Number(pos.lat.toFixed(8)),lng:Number(pos.lng.toFixed(8))};
@@ -69,12 +117,12 @@ function paint(){
    setNumbers(checked,true);
   });
   marker.on('dragend',e=>{
-   if(old)undoStack.push(old);
+   if(old){undoStack.push(old);if(undoStack.length>45)undoStack.shift()}
    old=null;
    const result=G.validate(coords);
    if(!result.valid&&coords.length>=3){
     // Reject invalid geometry but retain insufficient-vertex state during free drawing.
-    coords=undoStack.pop()||coords;
+    const previous=undoStack.pop();if(previous)restore(previous);
     showStatus('السحب أدى إلى مضلع متقاطع أو غير صالح. أُعيدت النقطة إلى مكانها.',true);
    }
    selected=i;refresh();
@@ -128,6 +176,14 @@ function refresh(){
  paint();renderTable();setNumbers(result);
 }
 map.on('click',e=>{
+ if(mode==='road'){
+  if(roads.length>=50||activeRoad.length>=100)return showStatus('وصلت إلى الحد الأعلى لرسم الشوارع.',true);
+  const p={lat:Number(e.latlng.lat.toFixed(8)),lng:Number(e.latlng.lng.toFixed(8))};
+  if(!Number.isFinite(p.lat)||!Number.isFinite(p.lng)||Math.abs(p.lat)>85||Math.abs(p.lng)>180)return;
+  history();activeRoad.push(p);renderRoads();
+  showStatus('أُضيفت نقطة إلى مسار الشارع ('+activeRoad.length+'). اضغط «إنهاء الشارع» عندما تنتهي.');
+  return;
+ }
  if(mode!=='add')return;
  if(coords.length>=100)return showStatus('الحد الأقصى 100 زاوية.',true);
  if(!Number.isFinite(e.latlng.lat)||Math.abs(e.latlng.lat)>85||Math.abs(e.latlng.lng)>180)return;
@@ -137,7 +193,22 @@ map.on('click',e=>{
 });
 $('addMode').onclick=()=>selectMode('add');
 $('moveMode').onclick=()=>selectMode('move');
-$('undoPoint').onclick=()=>{if(!undoStack.length)return showStatus('لا توجد خطوة سابقة.');coords=undoStack.pop();selected=-1;refresh()};
+$('roadMode').onclick=()=>selectMode('road');
+$('finishRoad').onclick=()=>{
+ if(activeRoad.length<2)return showStatus('ارسم نقطتين على الأقل لتحديد محور الشارع.',true);
+ const width=parse($('roadWidth').value);
+ if(!Number.isFinite(width)||width<=0||width>100)return showStatus('عرض الشارع يجب أن يكون أكبر من صفر وأقل من أو يساوي 100 متر.',true);
+ history();
+ roads.push({name:$('roadName').value.trim().slice(0,80)||'Road '+(roads.length+1),width,points:activeRoad.map(p=>({...p}))});
+ activeRoad=[];$('roadName').value='Road '+(roads.length+1);renderRoads();selectMode('move');
+ showStatus('تم إنهاء الشارع وإضافته إلى المخطط والتصدير.');
+};
+$('clearRoads').onclick=()=>{
+ if(!roads.length&&!activeRoad.length)return;
+ if(!confirm('حذف جميع الشوارع المرسومة؟'))return;
+ history();roads=[];activeRoad=[];renderRoads();showStatus('تم مسح الشوارع، مع الاحتفاظ بحدود الأرض.');
+};
+$('undoPoint').onclick=()=>{if(!undoStack.length)return showStatus('لا توجد خطوة سابقة.');restore(undoStack.pop());selected=-1;refresh()};
 $('clearPoints').onclick=()=>{
  if(!coords.length)return;
  if(!confirm('هل تريد مسح نقاط الأرض من الخريطة؟'))return;
@@ -182,7 +253,7 @@ $('saveProject').onclick=async()=>{
  if(!current)return showStatus('لا يمكن حفظ قياس غير صالح.',true);
  const title=$('projectTitle').value.trim().slice(0,120)||'أرض مقاسة من الخريطة';
  const data={type:'satellite-land',method:'geodesic-satellite-map',points:coords.map(p=>({...p})),
- area:current.area,perimeter:current.perimeter,edges:current.edges,unit:'m2',createdAt:new Date().toISOString(),
+ area:current.area,perimeter:current.perimeter,edges:current.edges,roads:cloneRoads(),unit:'m2',createdAt:new Date().toISOString(),
  note:'Approximate geodesic area from user-selected satellite/map coordinates; not a certified cadastral survey.'};
  const btn=$('saveProject');btn.disabled=true;
  try{
@@ -214,9 +285,25 @@ $('restoreProject').onclick=()=>{
  if(i===''||!p)return showStatus('اختر مشروعًا محفوظًا أولًا.',true);
  const points=p.data.points.map(c=>({lat:Number(c.lat),lng:Number(c.lng)}));
  if(!G.validate(points).valid)return showStatus('إحداثيات هذا المشروع غير صالحة.',true);
- history();coords=points;selected=-1;$('projectTitle').value=p.title;refresh();
+ history();coords=points;roads=Array.isArray(p.data.roads)?p.data.roads.slice(0,50).map(r=>({name:String(r.name||'Road').slice(0,80),width:Number(r.width)||8,points:(r.points||[]).slice(0,100).map(q=>({lat:Number(q.lat),lng:Number(q.lng)}))})).filter(r=>r.points.length>=2):[];activeRoad=[];selected=-1;$('projectTitle').value=p.title;refresh();
  map.fitBounds(L.latLngBounds(coords.map(angleLatLng)),{padding:[40,40],maxZoom:19});
  showStatus('استُعيدت حدود المشروع المحفوظ: '+p.title);
+};
+const canExport=()=>{
+ if(!Export||typeof Export.createDXF!=='function'||typeof Export.createPDF!=='function'){showStatus('محرك التصدير غير متاح. حدّث الصفحة.',true);return false}
+ if(!current){showStatus('يجب إكمال حدود أرض صالحة قبل تنزيل المخطط.',true);return false}
+ return true;
+};
+function exportData(){return{points:coords,title:$('projectTitle').value.trim()||'Civil AI Parcel',roads:cloneRoads()}}
+$('exportDXF').onclick=()=>{
+ if(!canExport())return;
+ try{downloadFile(Export.createDXF(exportData(),G),'dxf','application/dxf');showStatus('تم تجهيز ملف DXF قابل للتعديل في AutoCAD؛ الشوارع والأبعاد وسهم الشمال في طبقات مستقلة.')}
+ catch(e){showStatus('تعذر إنشاء DXF: '+e.message,true)}
+};
+$('exportPDF').onclick=()=>{
+ if(!canExport())return;
+ try{downloadFile(Export.createPDF(exportData(),G),'pdf','application/pdf');showStatus('تم تجهيز مخطط PDF متجهي قابل للطباعة.')}
+ catch(e){showStatus('تعذر إنشاء PDF: '+e.message,true)}
 };
 refresh();selectMode('add');
 setTimeout(()=>map.invalidateSize(),300);
