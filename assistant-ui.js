@@ -1,0 +1,117 @@
+'use strict';
+(function(){
+ const $=id=>document.getElementById(id),chat=$('chatLog'),outputs=$('toolOutputs');
+ const definitions={
+ beam_udl:[['spanM','طول البحر L (م)',6],['loadKnPerM','الحمل المنتظم w (kN/m)',10]],
+ beam_point:[['spanM','طول البحر L (م)',6],['loadKn','الحمل المركز P (kN)',20]],
+ concrete_volume:[['lengthM','الطول (م)',5],['widthM','العرض (م)',4],['heightM','الارتفاع/السماكة (م)',.2],['wastePercent','الهدر (%)',5],['unitCost','سعر المتر المكعب (اختياري)',null]],
+ footing_pressure:[['axialLoadKn','الحمل المحوري (kN)',300],['lengthM','طول القاعدة (م)',2],['widthM','عرض القاعدة (م)',2],['allowableKpa','ضغط التربة المسموح (kPa، اختياري)',null]],
+ rebar_weight:[['diameterMm','قطر السيخ (mm)',16],['totalLengthM','مجموع أطوال الأسياخ (m)',100]],
+ rect_section:[['widthMm','عرض القطاع (mm)',300],['heightMm','ارتفاع القطاع (mm)',500]],
+ convert_units:[['category','الفئة','length'],['from','من وحدة','m'],['to','إلى وحدة','cm'],['value','القيمة',12]]
+ };
+ const unitSets={length:['m','cm','mm','km','ft','in'],force:['N','kN','lbf','kip'],pressure:['Pa','kPa','MPa','GPa','psi','ksi'],area:['m2','cm2','mm2','ft2']};
+ const fields=$('fields');
+ function buildForm(){
+  const kind=$('kind').value;fields.replaceChildren();
+  for(const [key,title,example] of definitions[kind]){
+   const label=document.createElement('label');label.htmlFor='f_'+key;label.textContent=title;
+   const selectOptions=kind==='convert_units'?(key==='category'?Object.keys(unitSets):key==='from'||key==='to'?unitSets[$('f_category')?.value||'length']:null):null;
+   const input=selectOptions?document.createElement('select'):document.createElement('input');
+   input.id='f_'+key;input.dataset.key=key;
+   if(selectOptions){
+    selectOptions.forEach(value=>{const option=document.createElement('option');option.value=value;option.textContent=value;input.append(option)});
+    input.value=example;
+    if(key==='category')input.addEventListener('change',()=>{const type=input.value;for(const [i,k] of ['from','to'].entries()){const sel=$('f_'+k);sel.replaceChildren();for(const value of unitSets[type]){const opt=document.createElement('option');opt.value=value;opt.textContent=value;sel.append(opt)}sel.value=unitSets[type][i]||unitSets[type][0]}})
+   }else{input.type='number';input.step='any';input.inputMode='decimal';if(example===null){input.placeholder='اختياري'}else{input.value=example;input.required=true}}
+   fields.append(label,input);
+  }
+ }
+ buildForm();$('kind').addEventListener('change',buildForm);
+ const api=async(body)=>{
+  const response=await fetch('/api/assistant',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const data=await response.json().catch(()=>({error:'تعذر قراءة رد الخادم.'}));
+  if(!response.ok)throw Error(data.error||'HTTP '+response.status);
+  return data;
+ };
+ const outputResult=(parent,title,calcs,actions)=>{
+  if(title){const heading=document.createElement('h3');heading.textContent=title;parent.append(heading)}
+  for(const item of calcs||[]){
+   const article=document.createElement('div');article.className='result';
+   const name=document.createElement('h3');name.textContent=item.title||'النتيجة الهندسية';article.append(name);
+   const pre=document.createElement('pre');
+   pre.textContent=Object.entries(item.result||{}).map(([key,val])=>key+' = '+String(val)).join('\n');
+   article.append(pre);
+   if(item.formulae?.length){const p=document.createElement('p');p.className='small';p.textContent='المعادلات: '+item.formulae.join(' · ');article.append(p)}
+   if(item.assumptions?.length){const ul=document.createElement('ul');ul.className='small';for(const txt of item.assumptions){const li=document.createElement('li');li.textContent=txt;ul.append(li)}article.append(ul)}
+   parent.append(article);
+  }
+  for(const action of actions||[]){
+   if(action?.type!=='navigate'&&action?.type!=='prefill')continue;
+   const row=document.createElement('div');row.className='result';
+   const explain=document.createElement('p');explain.textContent=action.type==='prefill'?'اقتراح تعبئة نموذج الحساب. راجع القيم قبل موافقتك: '+JSON.stringify(action.fields||{}):'اقتراح الانتقال إلى قسم '+action.page+' في '+action.target;
+   row.append(explain);
+   const button=document.createElement('button');button.className='btn';button.type='button';button.textContent=action.type==='prefill'?'تأكيد تعبئة النموذج':'موافق، افتح القسم';
+   button.onclick=()=>{
+    if(!window.confirm('هل توافق على '+(action.type==='prefill'?'تعبئة القيم التالية دون حفظها؟':'فتح هذا القسم؟')+'\n'+(action.type==='prefill'?JSON.stringify(action.fields):String(action.page))))return;
+    if(action.target==='main'){
+     if(action.type==='prefill')sessionStorage.setItem('civilai_confirmed_ai_prefill',JSON.stringify({page:action.page,fields:action.fields,at:Date.now()}));
+     location.href='/?open='+encodeURIComponent(action.page);
+    }else if(action.target==='studio'){
+     location.href='/studio.html?open='+encodeURIComponent(action.page);
+    }
+   };
+   row.append(button);parent.append(row);
+  }
+ };
+ function bubble(role,text){
+  const p=document.createElement('div');p.className='msg '+role;p.textContent=text;chat.append(p);chat.scrollTop=chat.scrollHeight;return p;
+ }
+ $('calcForm').addEventListener('submit',async(e)=>{
+  e.preventDefault();const b=$('calcBtn'),target=$('calcOutput');b.disabled=true;target.replaceChildren();
+  try{
+   const kind=$('kind').value,values={};
+   for(const elem of fields.querySelectorAll('[data-key]')){
+    if(!elem.value.trim())continue;
+    values[elem.dataset.key]=elem.tagName==='SELECT'?elem.value:Number(elem.value);
+   }
+   const result=await api({operation:'calculate',calculation:{kind,values}});
+   outputResult(target,null,result.calculations);
+  }catch(err){const p=document.createElement('p');p.className='msg error';p.textContent=err.message;target.append(p)}
+  finally{b.disabled=false}
+ });
+ let history=[],busy=false;
+ async function toDataURL(file){
+  if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>2.8*1024*1024)throw Error('اختر صورة PNG/JPEG/WebP أقل من 2.8 MB.');
+  return await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('لم أتمكن من قراءة الصورة.'));reader.readAsDataURL(file)});
+ }
+ async function sendQuestion(question){
+  if(busy)return;const q=String(question||'').trim();if(q.length<2)return;
+  const send=$('send');busy=true;send.disabled=true;bubble('user',q);
+  const pending=bubble('ai','جارٍ تحليل السؤال…');
+  try{
+   const file=$('attachment').files[0];
+   const attachmentDataUrl=file?await toDataURL(file):undefined;
+   const result=await api({operation:'chat',question:q,history:history.slice(-6),...(attachmentDataUrl?{attachmentDataUrl}:{})});
+   pending.textContent=result.answer||'لم أستلم جوابًا.';
+   const group=document.createElement('div');outputResult(group,null,result.calculations,result.actions);
+   if(group.childNodes.length)outputs.prepend(group);
+   history.push({role:'user',content:q},{role:'assistant',content:pending.textContent});
+   history=history.slice(-8);
+   $('question').value='';$('attachment').value='';
+  }catch(err){pending.classList.add('error');pending.textContent='تعذر معالجة السؤال: '+err.message}
+  finally{busy=false;send.disabled=false;chat.scrollTop=chat.scrollHeight}
+ }
+ $('chatForm').addEventListener('submit',(e)=>{e.preventDefault();sendQuestion($('question').value)});
+ $('clear').onclick=()=>{history=[];chat.replaceChildren();outputs.replaceChildren();bubble('ai','بدأنا محادثة جديدة. كيف يمكنني مساعدتك هندسيًا؟')};
+ document.querySelectorAll('[data-question]').forEach(b=>b.onclick=()=>{ $('question').value=b.dataset.question;$('question').focus()});
+ (async()=>{
+  try{
+   const response=await fetch('/api/assistant',{method:'GET',cache:'no-store',credentials:'same-origin'});
+   if(!response.ok)throw Error('الخدمة غير متاحة');
+   const info=await response.json();
+   $('aiStatus').textContent=info.enabled?'متصل بالنموذج الذكي · '+info.model+' · '+info.dailyAILimit+' أسئلة يوميًا':'الحاسبات الهندسية متاحة · يلزم تفعيل Vercel AI Gateway للأسئلة الحرة';
+   if(!info.enabled)$('chatHint').textContent+=' وضع الذكاء الاصطناعي الحر غير مفعّل حاليًا، لكن الحسابات والأوامر البسيطة تعمل.';
+  }catch(e){$('aiStatus').textContent='فشل الاتصال بخادم المساعد — '+e.message}
+ })();
+})();
