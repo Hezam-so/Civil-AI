@@ -159,4 +159,23 @@ $('saveStudioProject').onclick=async()=>{
 
 // Initial calculations & UI
 tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'));$('secType').dispatchEvent(new Event('change'));calcBeam();$('calcSection').click();$('calcFoot').click();$('calcEarth').click();calcBars();window.addEventListener('civil-auth-ready',()=>initVault());if(window.CivilAccount)initVault();aiStatus();const requestedPage=new URLSearchParams(location.search).get('open');if(['home','beam','section','footing','earth','rebar','files'].includes(requestedPage))nav(requestedPage);
+// Values from the assistant are proposed and only applied after the user's explicit approval.
+(function applyConfirmedStudioPrefill(){
+ try{
+  const raw=sessionStorage.getItem('civilai_confirmed_studio_prefill');
+  if(!raw)return;
+  sessionStorage.removeItem('civilai_confirmed_studio_prefill');
+  const a=JSON.parse(raw);
+  if(!a||!['beam','footing','section'].includes(a.page)||requestedPage!==a.page
+   ||typeof a.at!=='number'||a.at>Date.now()||Date.now()-a.at>300000||!a.fields||typeof a.fields!=='object')return;
+  const limits={beamL:[.1,200],beamE:[1,300],beamI:[1,1e18],
+   footP:[0,1e9],footL:[.1,10000],footB:[.1,10000],footH:[0,10000],footQ:[1,1e9],
+   secB:[1,100000],secH:[1,100000]};
+  const allowed={beam:['beamL','beamE','beamI'],footing:['footP','footL','footB','footH','footQ'],section:['secB','secH']};
+  for(const [id,value] of Object.entries(a.fields)){
+   if(!allowed[a.page].includes(id)||!Number.isFinite(value)||value<limits[id][0]||value>limits[id][1])continue;
+   const input=$(id);if(input)input.value=String(value);
+  }
+ }catch(e){console.warn('Studio assistant prefill could not be applied');}
+})();
 </script></body></html>
