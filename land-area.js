@@ -18,7 +18,6 @@ const units=[
  {id:'maad_jizani',ar:'المعاد الجيزاني',en:'Jizani ma’ad',region:'jizani',arRegion:'القياس الجيزاني',enRegion:'Jizani customary measure',m2:3600,kind:'yemeni',source:'maskani'},
  {id:'feddan_egypt',ar:'الفدان المتداول محليًا (4200 م²)',en:'Local feddan (4200 m²)',region:'local_feddan',arRegion:'قياس متداول (راجع المنطقة)',enRegion:'Customary feddan (verify locally)',m2:4200,kind:'yemeni',source:'moj'},
  {id:'qirat_local',ar:'القيراط (من فدان 4200 م²)',en:'Qirat (1/24 of 4200 m² feddan)',region:'local_feddan',arRegion:'قياس متداول (راجع المنطقة)',enRegion:'Customary measure (verify locally)',m2:175,kind:'yemeni',source:'moj'},
- {id:'custom',ar:'وحدة عرفية محلية مخصّصة',en:'Custom regional unit',region:'custom',arRegion:'أي محافظة أو مديرية',enRegion:'Any district / governorate',m2:null,kind:'custom',source:'user'},
  {id:'mm2',ar:'مليمتر مربع',en:'Square millimetre',region:'metric',m2:0.000001,kind:'metric'},
  {id:'cm2',ar:'سنتيمتر مربع',en:'Square centimetre',region:'metric',m2:0.0001,kind:'metric'},
  {id:'dm2',ar:'ديسيمتر مربع',en:'Square decimetre',region:'metric',m2:0.01,kind:'metric'},
@@ -39,32 +38,13 @@ const locales={
  ar:{all:'جميع المناطق',metric:'النظام المتري / الدولي',imperial:'النظام البريطاني / الإنجليزي',custom:'وحدة مخصصة',yemen:'الوحدات اليمنية',loading:'جارٍ التحويل…',invalid:'أدخل مساحة صحيحة لا تقل عن الصفر.',factorBad:'يجب إدخال معامل مساحة موجب وصحيح.',factorSaved:'تم اعتماد المعامل المحلي على هذا الجهاز.',factorRestored:'أُعيدت القيمة المرجعية المتداولة.',saved:'تم حفظ نتيجة التحويل في حسابك الخاص.',saveError:'تعذر حفظ المشروع: ',copied:'تم نسخ نتيجة التحويل.',copyError:'تعذر النسخ. يمكنك نسخ النتيجة يدويًا.',local:'معامل الوحدة المحلية تقديري وقابل للتغيير.',exact:'معامل عالمي ثابت ومعرّف بدقة.',customLabel:'وحدة مخصصة',none:'—',tableEmpty:'لا توجد وحدات مطابقة.',source:'القيم المحلية تقريبية بحسب العرف، وقد تختلف عن سند الملكية.',factor:'م² لكل وحدة'},
  en:{all:'All regions',metric:'Metric / SI',imperial:'British / imperial',custom:'Custom unit',yemen:'Yemeni customary',loading:'Converting…',invalid:'Enter an area greater than or equal to zero.',factorBad:'Enter a valid positive square-metre factor.',factorSaved:'Local factor saved on this device.',factorRestored:'Restored the published reference factor.',saved:'Conversion saved in your private account.',saveError:'Unable to save conversion: ',copied:'Conversion copied.',copyError:'Unable to copy. Copy the result manually.',local:'Customary unit; factor is approximate and editable.',exact:'International definition: exact factor.',customLabel:'Custom local unit',none:'—',tableEmpty:'No matching units.',source:'Local measures are approximate and may differ from the deed.',factor:'m² per unit'}
 };
-let language='ar',overrides={},factorCustom=44.44,customName='وحدة محلية',customRegion='';
-try{
- const stored=JSON.parse(localStorage.getItem('civil-ai-land-area-v1')||'{}');
- if(stored&&typeof stored==='object'){
-  if(stored.language==='en')language='en';
-  if(stored.overrides&&typeof stored.overrides==='object')for(const unit of units.filter(x=>x.kind==='yemeni')){
-   const a=Number(stored.overrides[unit.id]);
-   if(Number.isFinite(a)&&a>0&&a<=1e12)overrides[unit.id]=a;
-  }
-  if(Number.isFinite(stored.factorCustom)&&stored.factorCustom>0)factorCustom=stored.factorCustom;
-  if(typeof stored.customName==='string')customName=stored.customName.slice(0,90);
-  if(typeof stored.customRegion==='string')customRegion=stored.customRegion.slice(0,80);
- }
-}catch{}
-function persist(){
- try{localStorage.setItem('civil-ai-land-area-v1',JSON.stringify({language,overrides,factorCustom,customName,customRegion}))}catch{}
-}
+let language='ar';
+try{if(JSON.parse(localStorage.getItem('civil-ai-land-area-v1')||'{}').language==='en')language='en'}catch{}
+function persist(){try{localStorage.setItem('civil-ai-land-area-v1',JSON.stringify({language}))}catch{}}
 function t(ar,en){return language==='ar'?ar:en}
 function tr(id){const u=units.find(x=>x.id===id);return u?language==='ar'?u.ar:u.en:id}
-function region(u){
- if(u.kind==='custom')return customRegion||t(u.arRegion,u.enRegion);
- if(u.kind==='yemeni')return language==='ar'?u.arRegion:u.enRegion;
- if(u.kind==='metric')return locales[language].metric;
- return locales[language].imperial;
-}
-function factor(u){return u.id==='custom'?factorCustom:((u.kind==='yemeni'&&overrides[u.id])||u.m2)}
+function region(u){if(u.kind==='yemeni')return language==='ar'?u.arRegion:u.enRegion;return u.kind==='metric'?locales[language].metric:locales[language].imperial}
+function factor(u){return u.m2}
 function fmt(number,maximumFractionDigits=8){
  if(!Number.isFinite(number))return '—';
  if(number===0)return '0';
@@ -83,7 +63,7 @@ function getAmount(){
 }
 const opt=(value,label)=>{const o=document.createElement('option');o.value=value;o.textContent=label;return o};
 function groupOptions(select,unitList){
- const sections=[['yemeni',locales[language].yemen],['custom',locales[language].custom],['metric',locales[language].metric],['imperial',locales[language].imperial]];
+ const sections=[['yemeni',locales[language].yemen],['metric',locales[language].metric],['imperial',locales[language].imperial]];
  for(const [kind,title] of sections){
   const matching=unitList.filter(u=>u.kind===kind);
   if(!matching.length)continue;
@@ -92,37 +72,14 @@ function groupOptions(select,unitList){
   select.append(group);
  }
 }
-function renderRegions(){
- const sel=$('regionFilter'),selected=sel.value||'all';sel.replaceChildren();
- sel.append(opt('all',locales[language].all));
- const seen=new Set();
- units.filter(x=>x.kind==='yemeni').forEach(u=>{
-  if(seen.has(u.region))return;
-  seen.add(u.region);sel.append(opt(u.region,region(u)));
- });
- sel.append(opt('custom',locales[language].custom));
- sel.value=selected;
- if(sel.selectedIndex<0)sel.value='all';
-}
 function renderUnits(){
  const from=$('fromUnit'),to=$('toUnit');
- const fromId=from.value||'labna_sanaa',toId=to.value||'m2',regionId=$('regionFilter').value;
+ const fromId=from.value||'labna_sanaa',toId=to.value||'m2';
  from.replaceChildren();to.replaceChildren();
- const filtered=units.filter(u=>u.kind!=='yemeni'||regionId==='all'||u.region===regionId);
- groupOptions(from,filtered);groupOptions(to,units);
+ groupOptions(from,units);groupOptions(to,units);
  from.value=fromId;to.value=toId;
- if(from.selectedIndex<0)from.value=regionId==='custom'?'custom':(filtered.find(u=>u.kind==='yemeni')?.id||'m2');
+ if(from.selectedIndex<0)from.value='labna_sanaa';
  if(to.selectedIndex<0)to.value='m2';
-}
-function updateFactorEditor(){
- const u=unit($('fromUnit').value);
- const editor=$('factorEditor');
- editor.classList.toggle('hidden',u.kind==='metric'||u.kind==='imperial');
- $('customMeta').style.display=u.id==='custom'?'grid':'none';
- $('factorInput').value=factor(u);
- $('customName').value=customName;
- $('customRegion').value=customRegion;
- $('resetFactor').style.display=u.id==='custom'?'none':'inline-flex';
 }
 function renderTable(m2){
  const body=$('comparisonRows');body.replaceChildren();
@@ -157,10 +114,6 @@ function convert(){
  text('conversionLabel',t('المساحة المكافئة','Equivalent area'));
  text('conversionDetail',fmt(amount)+' '+tr(a.id)+' = '+result);
  text('inM2',fmt(m2));text('inHectare',fmt(m2/10000));text('inFeet',fmt(m2/0.09290304));text('inAcres',fmt(m2/4046.8564224));
- text('formula',fmt(amount)+' × '+fmt(x,12)+' m²/unit ÷ '+fmt(y,12)+' m²/unit = '+fmt(to,10)+' target units');
- const notes=[];
- for(const u of [a,b])if(u.kind==='yemeni'||u.kind==='custom')notes.push(tr(u.id)+' — '+fmt(factor(u),12)+' m²/'+t('وحدة','unit'));
- text('activeFactorNote',notes.length?notes.join(' · ')+' · '+locales[language].source:locales[language].exact);
  renderTable(m2);
 }
 function applyTranslation(){
@@ -169,37 +122,19 @@ function applyTranslation(){
  document.querySelectorAll('[data-ar][data-en]').forEach(el=>{el.textContent=el.dataset[language]});
  text('langButton',language==='ar'?'English':'العربية');
  $('areaAmount').setAttribute('aria-label',t('قيمة المساحة','Area amount'));
- renderRegions();renderUnits();updateFactorEditor();convert();
+ renderUnits();convert();
 }
 function message(s,isError=false){const el=$('notice');el.textContent=s;el.style.color=isError?'#ffb3ac':'#b8efdd'}
 $('langButton').onclick=()=>{
  language=language==='ar'?'en':'ar';applyTranslation();persist();
 };
-$('regionFilter').onchange=()=>{renderUnits();updateFactorEditor();convert()};
-$('fromUnit').onchange=()=>{updateFactorEditor();convert()};
+$('fromUnit').onchange=convert;
 $('toUnit').onchange=convert;
 $('areaAmount').oninput=convert;
 $('tableSearch').oninput=convert;
 $('swap').onclick=()=>{
  const a=$('fromUnit').value,b=$('toUnit').value;
- $('regionFilter').value='all';renderUnits();$('fromUnit').value=b;$('toUnit').value=a;updateFactorEditor();convert();
-};
-$('saveFactor').onclick=()=>{
- const a=unit($('fromUnit').value),value=Number($('factorInput').value);
- if(!a||(!['yemeni','custom'].includes(a.kind)))return;
- if(!Number.isFinite(value)||value<=0||value>1e12){message(locales[language].factorBad,true);return}
- if(a.id==='custom'){
-  factorCustom=value;customName=String($('customName').value||'وحدة محلية').trim().slice(0,90)||'وحدة محلية';
-  customRegion=String($('customRegion').value||'').trim().slice(0,80);
-  const u=unit('custom');u.ar=customName;u.en=customName;
-  renderRegions();renderUnits();$('fromUnit').value='custom';
- }else overrides[a.id]=value;
- persist();updateFactorEditor();convert();message(locales[language].factorSaved);
-};
-$('resetFactor').onclick=()=>{
- const a=unit($('fromUnit').value);
- if(!a||a.kind!=='yemeni')return;
- delete overrides[a.id];persist();updateFactorEditor();convert();message(locales[language].factorRestored);
+ $('fromUnit').value=b;$('toUnit').value=a;convert();
 };
 $('copyResult').onclick=async()=>{
  const a=unit($('fromUnit').value),b=unit($('toUnit').value),amount=getAmount();
@@ -214,7 +149,7 @@ $('saveResult').onclick=async()=>{
  if(!Number.isFinite(amount))return message(locales[language].invalid,true);
  const btn=$('saveResult');btn.disabled=true;
  try{
-  const record={type:'land-area',amount,from:a.id,to:b.id,fromName:tr(a.id),toName:tr(b.id),sourceFactor:factor(a),targetFactor:factor(b),m2:amount*factor(a),converted:amount*factor(a)/factor(b),locale:language,customRegion:customRegion||null,createdAt:new Date().toISOString(),note:locales[language].source};
+  const record={type:'land-area',amount,from:a.id,to:b.id,fromName:tr(a.id),toName:tr(b.id),sourceFactor:factor(a),targetFactor:factor(b),m2:amount*factor(a),converted:amount*factor(a)/factor(b),locale:language,createdAt:new Date().toISOString(),note:locales[language].source};
   const response=await fetch('/api/projects?action=create',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:t('تحويل مساحة أرض: ','Land area conversion: ')+tr(a.id)+' → '+tr(b.id),type:'land-area',data:record})});
   const r=await response.json();
   if(!response.ok)throw Error(r.error||'HTTP '+response.status);
@@ -222,8 +157,7 @@ $('saveResult').onclick=async()=>{
  }catch(e){message(locales[language].saveError+e.message,true)}
  finally{btn.disabled=false}
 };
-unit('custom').ar=customName;unit('custom').en=customName;
-renderRegions();renderUnits();
+renderUnits();
 $('fromUnit').value='labna_sanaa';$('toUnit').value='m2';
 applyTranslation();
 })();
