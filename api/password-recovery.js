@@ -39,16 +39,43 @@ function sourceOK(req){
  const origin=req.headers.origin,host=req.headers['x-forwarded-host']||req.headers.host;
  return typeof origin==='string'&&origin==='https://'+host;
 }
+const resendReady=()=>Boolean(process.env.RESEND_API_KEY&&process.env.CIVIL_AI_EMAIL_FROM);
+const smtpReady=()=>Boolean(process.env.CIVIL_AI_SMTP_USER&&process.env.CIVIL_AI_SMTP_APP_PASSWORD);
+const mailReady=()=>resendReady()||smtpReady();
 async function send(email,code){
- const from=process.env.CIVIL_AI_EMAIL_FROM;
  const text='رمز إعادة تعيين كلمة مرور Civil AI هو: '+code+
  '\nهذا الرمز صالح لمدة 10 دقائق ولا تشاركه مع أي شخص.\nإذا لم تطلب استعادة كلمة المرور، فتجاهل هذه الرسالة.';
  const html='<div dir="rtl" style="font:16px/1.8 Arial,sans-serif"><h2>استعادة كلمة مرور Civil AI</h2><p>رمز التحقق:</p><p style="font:700 30px monospace;letter-spacing:4px">'+code+'</p><p>صالح لمدة 10 دقائق ويُستخدم مرة واحدة فقط.</p><p>إذا لم تطلب ذلك، تجاهل هذه الرسالة.</p></div>';
- const r=await fetch('https://api.resend.com/emails',{
-  method:'POST',headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json'},
-  body:JSON.stringify({from,to:[email],subject:'رمز استعادة كلمة المرور — Civil AI',text,html})
- });
- if(!r.ok)throw Error('Email delivery provider rejected the request (HTTP '+r.status+')');
+ const subject='رمز استعادة كلمة المرور — Civil AI';
+ // Preferred production transport: verified custom sending domain with Resend.
+ if(resendReady()){
+  const response=await fetch('https://api.resend.com/emails',{
+   method:'POST',
+   headers:{Authorization:'Bearer '+process.env.RESEND_API_KEY,'Content-Type':'application/json'},
+   body:JSON.stringify({from:process.env.CIVIL_AI_EMAIL_FROM,to:[email],subject,text,html}),
+   signal:AbortSignal.timeout(12000)
+  });
+  if(!response.ok)throw Error('Resend rejected delivery (HTTP '+response.status+')');
+  const result=await response.json();
+  if(!result.id)throw Error('Resend returned no message identifier');
+  return;
+ }
+ // Alternative for small-scale testing: Gmail with a 16-character Google App Password.
+ // Credentials stay entirely in Vercel Environment Variables (never sent to browsers).
+ if(smtpReady()){
+  const user=String(process.env.CIVIL_AI_SMTP_USER||'').trim();
+  if(!emailOK(user))throw Error('Invalid Gmail sender address');
+  const transport=require('nodemailer').createTransport({
+   host:'smtp.gmail.com',port:465,secure:true,
+   auth:{user,pass:process.env.CIVIL_AI_SMTP_APP_PASSWORD.replace(/\s/g,'')},
+   connectionTimeout:10000,greetingTimeout:8000,socketTimeout:12000,
+   pool:false
+  });
+  const receipt=await transport.sendMail({from:'Civil AI <'+user+'>',to:email,subject,text,html});
+  if(!receipt.accepted?.some(x=>norm(x)===norm(email)))throw Error('Gmail SMTP did not accept destination recipient');
+  return;
+ }
+ throw Error('No configured outbound email provider');
 }
 async function passwordHash(pass,salt){
  return await new Promise((resolve,reject)=>crypto.scrypt(pass,salt,64,{N:16384,r:8,p:1},(err,b)=>err?reject(err):resolve(b.toString('hex'))));
@@ -58,7 +85,7 @@ module.exports=async function(req,res){
  res.setHeader('X-Content-Type-Options','nosniff');
  try{
   if(req.method==='GET'&&new URL(req.url,'https://civil-ai.invalid').searchParams.get('action')==='status'){
-   return res.status(200).json({emailDeliveryConfigured:Boolean(process.env.RESEND_API_KEY&&process.env.CIVIL_AI_EMAIL_FROM)});
+   return res.status(200).json({emailDeliveryConfigured:mailReady()});
   }
   if(req.method!=='POST')return fail(res,405,'Method not allowed');
   if(!sourceOK(req))return fail(res,403,'يجب إرسال الطلب من موقع Civil AI.');
@@ -74,8 +101,8 @@ module.exports=async function(req,res){
   const resetPath='civilai/password-reset/tokens/'+id+'.json';
   if(action==='request'){
    // Show an explicit not-configured message; never pretend a code was delivered.
-   if(!process.env.RESEND_API_KEY||!process.env.CIVIL_AI_EMAIL_FROM)
-     return fail(res,503,'إرسال رموز الاستعادة غير مفعّل بعد. يحتاج الموقع إلى ربط بريد الإرسال من المالك.');
+   if(!mailReady())
+     return fail(res,503,'خدمة البريد غير مفعّلة بعد. يجب على مالك الموقع ربط Resend أو Gmail SMTP من إعدادات Vercel.');
    const existing=await read(userPath);
    if(!existing)return res.status(200).json({message:generic});
    // Immutable rate-limit slot protects against repeated sends across serverless instances.
