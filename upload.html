@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#081426">
+<title>إرفاق المخططات الهندسية | Civil AI</title>
+<style>
+:root{color-scheme:dark;--line:#2e4c69;--muted:#b0c7dc;--accent:#49dbea}
+*{box-sizing:border-box}
+body{visibility:hidden;margin:0;background:radial-gradient(ellipse at 80% 0%,#16456b 0%,#081425 48%,#060e1b 100%);color:#ecf7ff;font-family:system-ui,Tahoma,Arial,sans-serif;line-height:1.8}
+a{color:inherit;text-decoration:none}
+.wrap{width:min(1120px,100%);margin:auto;padding:22px 18px 36px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:15px;flex-wrap:wrap;padding-bottom:18px;border-bottom:1px solid var(--line)}
+.brand{font-size:25px;font-weight:900;letter-spacing:1px}.brand span{color:var(--accent)}
+.links{display:flex;gap:9px;flex-wrap:wrap}
+.links a,.action{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid #46718f;border-radius:11px;padding:10px 15px;background:#17354f}
+.links a:hover,.action:hover{background:#204d6f}
+.eyebrow{font-size:12px;letter-spacing:1px;color:#6ce1eb;font-weight:800}
+.hero{padding:32px 0 22px}
+h1{font-size:clamp(28px,4vw,40px);line-height:1.3;margin:8px 0 14px}
+.hero p{color:#c9dae7;max-width:750px}
+.pills{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.pills span{background:#142d48;border:1px solid var(--line);border-radius:100px;padding:5px 12px;font-size:13px;color:#a9d8e7}
+.cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:17px}
+.card{padding:23px;background:linear-gradient(140deg,#112c48,#101c31);border:1px solid var(--line);border-radius:17px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card h2{font-size:23px;margin:0}.card p{margin:0;color:#b9cfe0}
+.icon{display:grid;place-items:center;border:1px solid #3f6b87;background:#1a4663;color:#70f1f6;width:45px;height:45px;border-radius:12px;font-size:24px}
+.ext{font:12px/1.6 ui-monospace,monospace;color:#8cc7de;direction:ltr;text-align:right;unicode-bidi:plaintext;overflow-wrap:anywhere}
+.actions{margin-top:auto;padding-top:10px;display:flex;gap:9px;flex-wrap:wrap}
+.action.primary{background:#167baf;border-color:#2eace0;font-weight:750}
+.action.secondary{font-size:13px}
+.warning{border:1px solid #66533a;background:#31291d;color:#f3d0a1;padding:14px 17px;border-radius:12px;margin-top:20px;font-size:14px}
+.help{border:1px solid var(--line);background:#10243a;padding:18px;border-radius:14px;margin-top:18px}
+.help h2{margin:0 0 9px;font-size:20px}
+.help ol{margin:6px 0;padding-right:23px;color:#c8d9e7}
+.foot{margin:20px 0 0;border-top:1px solid var(--line);padding-top:14px;display:flex;gap:13px;justify-content:space-between;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:13px}
+.foot a{color:#72d5ed;text-decoration:underline}
+@media(max-width:690px){.cards{grid-template-columns:1fr}.hero{padding-top:24px}.card{padding:18px}.wrap{padding:15px 12px 25px}}
+</style>
+<script src="account-gate.js" defer></script>
+</head><body>
+<div class="wrap">
+<header class="top"><div class="brand">CIVIL <span>AI</span></div><nav class="links" aria-label="التنقل"><a href="/">الرئيسية</a><a href="studio.html?open=files">مكتبة ملفاتي</a><a href="model-viewer.html">عارض DWG / BIM</a></nav></header>
+<main>
+<section class="hero">
+<div class="eyebrow">UPLOAD CENTER · CAD · BIM · STRUCTURAL</div>
+<h1>إرفاق المخططات والملفات الهندسية</h1>
+<p>اختر البرنامج الذي أُنشئ فيه الملف، ثم اضغط زر الرفع المناسب. ستجد زر «اختيار ملف» داخل العارض أو مكتبة الملفات. يمكنك عرض الصيغ المدعومة، أو الاحتفاظ بنسخة محلية من الملفات التي لا يدعم الموقع فتحها بعد.</p>
+<div class="pills"><span>AutoCAD</span><span>Revit</span><span>Robot Structural Analysis</span><span>Civil 3D</span></div>
+</section>
+<section class="cards" aria-label="قائمة إرفاق المخططات">
+<article class="card">
+<div class="icon" aria-hidden="true">▧</div>
+<h2>مخططات AutoCAD</h2>
+<div class="ext">DWG · DXF</div>
+<p>ارفع الرسم وافتح اللوحات ثنائية الأبعاد أو النماذج المتاحة. يعالج عارض Autodesk الملفات المدعومة سحابيًا.</p>
+<div class="actions"><a class="action primary" href="model-viewer.html">⇧ إرفاق وعرض AutoCAD</a><a class="action secondary" href="cad-viewer.html">عرض DXF محليًا</a></div>
+</article>
+<article class="card">
+<div class="icon" aria-hidden="true">▤</div>
+<h2>نماذج Revit</h2>
+<div class="ext">RVT · RFA · IFC</div>
+<p>ارفع النموذج لتحويله وفتح المناظير والعناصر المتاحة. قد تختلف النتائج بحسب تكوين الملف والمراجع المرتبطة به.</p>
+<div class="actions"><a class="action primary" href="model-viewer.html">⇧ إرفاق وعرض Revit</a></div>
+</article>
+<article class="card">
+<div class="icon" aria-hidden="true">⌁</div>
+<h2>ملفات Robot Structural Analysis</h2>
+<div class="ext">RTD · CSV (export)</div>
+<p>يمكنك إرفاق ملف Robot الأصلي داخل المكتبة المحلية، لكن عرض نموذج RTD مباشرة غير متاح حاليًا. يمكن فتح بيانات العقد والقضبان إذا صدّرتها إلى CSV.</p>
+<div class="actions"><a class="action primary" href="studio.html?open=files">⇧ إرفاق ملف Robot</a><a class="action secondary" href="robot-viewer.html">عرض بيانات CSV</a></div>
+</article>
+<article class="card">
+<div class="icon" aria-hidden="true">⌘</div>
+<h2>مخططات Civil 3D</h2>
+<div class="ext">DWG · DXF · IFC</div>
+<p>ارفع DWG الخاص بـ Civil 3D عبر عارض Autodesk. بعض العناصر المتخصصة قد تحتاج أدوات Autodesk إضافية، وقد لا تظهر جميع التفاصيل.</p>
+<div class="actions"><a class="action primary" href="model-viewer.html">⇧ إرفاق وعرض Civil 3D</a></div>
+</article>
+</section>
+<div class="warning"><strong>قبل الإرفاق:</strong> عارض Autodesk يسمح بملفات مدعومة حتى 500 MB للعرض والتحويل السحابي، وقد يتطلب تفعيل عارض Autodesk بكلمة مرور المالك. مكتبة Studio تحفظ الملفات محليًا على هذا الجهاز فقط (حتى 25 MB لكل ملف)، ولا تزامنها حاليًا بين الأجهزة أو حسابات المستخدمين. ملفات RTD الأصلية لا تُحلّل مباشرة داخل الموقع.</div>
+<section class="help"><h2>كيف تبدأ؟</h2><ol><li>اختر نوع المخطط من البطاقات أعلاه.</li><li>اضغط «إرفاق وعرض» أو «إرفاق ملف».</li><li>اختر الملف من هاتفك أو حاسوبك في الصفحة التي ستُفتح.</li><li>إذا كان الملف مدعومًا، ابدأ الرفع والتحويل؛ ثم افحص النموذج أو بياناته بعد اكتمال العملية.</li></ol></section>
+</main>
+<footer class="foot"><span>للتواصل: المهندس حزام سليمان</span><a href="tel:+967775264654" dir="ltr">+967775264654</a></footer>
+</div>
+</body></html>
