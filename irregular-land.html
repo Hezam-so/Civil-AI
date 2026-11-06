@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#081729">
+<meta name="description" content="حاسبة دقيقة لمساحة الأراضي غير المنتظمة بالإحداثيات أو تقسيم القطعة إلى مثلثات - Civil AI">
+<title>مساحة الأرض غير المنتظمة | Civil AI</title>
+<style>
+:root{color-scheme:dark;--bg:#071629;--surface:#102740;--line:#2d4d69;--text:#eff9ff;--muted:#aac7da;--bright:#69e4e9;--gold:#e4b85e}
+*{box-sizing:border-box}
+body{margin:0;visibility:hidden;background:radial-gradient(ellipse at 80% -14%,#1a4364 0%,#0b1e33 48%,#071321 100%);color:var(--text);font-family:system-ui,Tahoma,Arial,sans-serif;line-height:1.6}
+button,input,select{font:inherit}
+button{cursor:pointer}
+a{color:#94e5f3}
+main{max-width:1120px;margin:auto;padding:20px 16px 70px}
+header{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 0 22px;border-bottom:1px solid var(--line)}
+.brand{font-weight:850;letter-spacing:1px;font-size:23px}.brand em{font-style:normal;color:var(--bright)}
+nav{display:flex;flex-wrap:wrap;gap:8px}
+nav a{padding:9px 13px;border-radius:11px;background:#14324e;border:1px solid #355d7a;text-decoration:none;color:#d9f2fc}
+.hero{padding:25px 0 16px}.hero small{color:var(--bright);font-weight:700;letter-spacing:1.6px}.hero h1{font-size:clamp(25px,4vw,36px);margin:7px 0}.hero p{color:var(--muted);margin:0;max-width:950px}
+.warning{padding:13px 16px;border:1px solid #8e7445;background:#302b25;color:#f7d6a0;border-radius:12px;font-size:13px;margin:15px 0}
+.modes{display:flex;gap:8px;margin-bottom:15px;flex-wrap:wrap}.modes button{border:1px solid #477592;color:#d5ebfb;background:#13364f;padding:11px 14px;border-radius:11px;font-weight:720}.modes button[aria-pressed=true]{background:#1478a8;color:white;border-color:#49bedf}
+.layout{display:grid;grid-template-columns:minmax(0,.95fr) minmax(0,1.05fr);gap:16px;align-items:start}
+.card{padding:20px;background:linear-gradient(145deg,#102d48,#0e2339);border:1px solid var(--line);border-radius:17px;min-width:0}
+.card h2{font-size:19px;margin:0 0 13px}.card h3{font-size:15px;color:#d2e9f6}
+.desc{color:var(--muted);font-size:13px;margin:4px 0 15px}
+.field{display:flex;flex-direction:column;gap:6px;margin:0 0 12px;min-width:0}.field label{font-size:13px;color:#cde4f3;font-weight:600}
+input,select{background:#081a2c;color:#fff;border:1px solid #456a82;padding:10px;border-radius:9px;min-width:0;width:100%}
+input:focus,select:focus{outline:2px solid #48cee4;outline-offset:2px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.row>*{flex:1}
+button.action{padding:10px 12px;border-radius:9px;color:white;border:1px solid #4084a3;background:#195475;font-size:13px;font-weight:700}
+button.action.primary{background:#157db3;border-color:#3bb9f2}
+button.action.light{background:#162f47}
+button.action.danger{background:#4d2b38;border-color:#ae5e73}
+button.action:disabled{opacity:.5;cursor:default}
+.tablewrap{overflow:auto;max-height:325px;border:1px solid #284967;border-radius:12px}
+table{border-collapse:collapse;width:100%;min-width:390px}
+th,td{padding:8px 7px;text-align:center;border-bottom:1px solid #29455e;font-size:12px}
+th{background:#173a53;color:#b9e4f6;position:sticky;top:0;z-index:1}
+table input{padding:9px 6px;font-size:13px;text-align:center}
+table button{padding:7px 9px;background:#4b2936;border:1px solid #7b4858;color:#fff;border-radius:8px}
+.note{font-size:12px;color:#aed1de;margin-top:10px}
+.diagram{background:#081929;border:1px solid #2a526a;border-radius:14px;overflow:hidden;margin-top:10px}
+.diagram svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.legend{display:flex;flex-wrap:wrap;gap:13px;margin:8px 0;color:#b7cbdb;font-size:12px}
+.legend span:before{content:"";display:inline-block;width:11px;height:3px;vertical-align:middle;margin-inline-end:6px;background:#e4b85e}
+.legend span:last-child:before{background:#59d6dd}
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:13px}
+.stat{background:#0b3048;border:1px solid #2d5d75;border-radius:12px;padding:12px;min-width:0}
+.stat small{display:block;color:#a8d0e1;font-size:12px}.stat strong{font-size:clamp(17px,2.8vw,24px);color:#83e7e8;overflow-wrap:anywhere}
+.stat.main{grid-column:1/-1;background:#0e3b55}.stat.main strong{font-size:clamp(23px,4vw,32px)}
+.status{padding:10px;border-radius:10px;background:#14314a;margin:12px 0;color:#dbf5ff;min-height:38px;font-size:13px;white-space:pre-wrap}
+.status.error{color:#ffc4b3;background:#422b31}
+.controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.controls button{flex:1}
+#triangleMode[hidden],#coordinateMode[hidden]{display:none}
+.examples{margin-top:9px}
+.source{color:#aecadd;font-size:13px}
+.footer{margin-top:25px;border-top:1px solid var(--line);padding-top:15px;font-size:12px;color:#b1ccd9}
+[hidden]{display:none!important}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.card{padding:15px}}
+@media(max-width:500px){main{padding:15px 10px 50px}.card{padding:13px}.stat{padding:10px}.row button{flex:auto}.hero{padding:20px 0 12px}}
+</style>
+<script src="account-gate.js" defer></script>
+<script src="irregular-land-core.js" defer></script>
+<script src="irregular-land.js" defer></script>
+</head>
+<body>
+<main>
+<header><div class="brand">CIVIL <em>AI</em></div><nav><a href="/">الرئيسية</a><a href="land-area.html">تحويل وحدات الأراضي</a><a href="studio.html">المختبر الهندسي</a></nav></header>
+<section class="hero"><small>SURVEY · IRREGULAR PARCEL</small><h1>حساب مساحة الأرض غير المنتظمة</h1><p>ارسم مخططًا من زوايا الأرض ذات الإحداثيات المقاسة، أو قسّم الأرض إلى مثلثات وأدخل أطوال أضلاع كل مثلث. تظهر المساحة تلقائيًا، ويمكنك حفظها في حسابك.</p></section>
+<div class="warning">الدقة: الإحداثيات يجب أن تكون بنظام مستوٍ بالمتر (مثل UTM)، وليست خطوط طول وعرض GPS بالدرجات. الرسم بالنقر للتوضيح والتقدير فقط. لا يكفي إدخال أطوال حدود أرض غير منتظمة وحدها لحساب مساحتها بدقة.</div>
+<div class="modes" role="group" aria-label="طريقة قياس الأرض">
+<button type="button" id="modeCoordinates" aria-pressed="true">◈ حدود الأرض بالإحداثيات</button>
+<button type="button" id="modeTriangles" aria-pressed="false">△ تقسيم الأرض إلى مثلثات</button>
+</div>
+<div class="layout">
+<section class="card" aria-label="مدخلات المساحة">
+<div class="field"><label for="projectTitle">اسم المشروع</label><input id="projectTitle" value="مساحة أرض غير منتظمة" maxlength="120"></div>
+<div id="coordinateMode">
+<h2>زوايا الأرض (X و Y بالمتر)</h2>
+<p class="desc">أدخل كل زاوية حسب ترتيبها حول حدود الأرض، مع أو عكس اتجاه عقارب الساعة. لا تكرر النقطة الأولى في النهاية، فالأداة تغلق المضلع تلقائيًا.</p>
+<div class="tablewrap"><table aria-label="جدول زوايا الأرض"><thead><tr><th>الزاوية</th><th>X شرقًا (م)</th><th>Y شمالًا (م)</th><th>حذف</th></tr></thead><tbody id="pointRows"></tbody></table></div>
+<div class="controls">
+<button type="button" class="action primary" id="addPoint">+ إضافة زاوية</button>
+<button type="button" class="action light" id="loadExample">تحميل مثال</button>
+<button type="button" class="action danger" id="clearPoints">مسح الرسم</button>
+</div>
+<p class="note">يمكنك أيضًا إضافة زاوية بالنقر داخل المخطط. إحداثيات النقر توضيحية بمقياس 1 متر لكل وحدة رسم ولا تُغني عن القياس المساحي.</p>
+</div>
+<div id="triangleMode" hidden>
+<h2>حساب المثلثات من أطوال الأضلاع</h2>
+<p class="desc">قسّم الأرض إلى مثلثات لا تتداخل ولا تترك فراغات. أدخل الأضلاع الثلاثة لكل مثلث بالأمتار (بما فيها الأقطار الداخلية المقاسة)، لتحسب مساحة كل مثلث ومجموع المساحات.</p>
+<div class="tablewrap"><table aria-label="أضلاع المثلثات"><thead><tr><th>مثلث</th><th>أ (م)</th><th>ب (م)</th><th>ج (م)</th><th>حذف</th></tr></thead><tbody id="triangleRows"></tbody></table></div>
+<div class="controls"><button type="button" id="addTriangle" class="action primary">+ إضافة مثلث</button><button type="button" id="exampleTriangles" class="action light">مثال مثلثات</button><button type="button" id="clearTriangles" class="action danger">مسح</button></div>
+<p class="note">الأداة تجمع مساحات المثلثات فقط ولا تتحقق آليًا من أن المثلثات المضافة تطابق حدود الأرض دون تداخل.</p>
+</div>
+</section>
+<section class="card" aria-label="رسم الأرض ونتيجة القياس">
+<h2>رسم الأرض ونتائج المساحة</h2>
+<p class="desc" id="sketchHelp">حدود المضلع باللون الذهبي، والتقسيم الداخلي باللون الأزرق. ترتيب الزوايا هو أساس الحساب.</p>
+<div class="diagram"><svg id="landDiagram" viewBox="0 0 480 330" role="img" aria-label="رسم توضيحي لحدود الأرض"></svg></div>
+<div class="legend"><span>حدود الأرض</span><span>القطر / التقسيم</span></div>
+<div class="status" id="status" role="status" aria-live="polite">—</div>
+<div class="stats">
+<div class="stat main"><small>المساحة الإجمالية</small><strong id="areaMain">—</strong></div>
+<div class="stat"><small>متر مربع (م²)</small><strong id="areaM2">—</strong></div>
+<div class="stat"><small>لبنة صنعانية (44.44 م²)</small><strong id="areaLabna">—</strong></div>
+<div class="stat"><small>هكتار</small><strong id="areaHa">—</strong></div>
+<div class="stat"><small>فدان إنجليزي</small><strong id="areaAcre">—</strong></div>
+<div class="stat"><small id="metricLabel">محيط الأرض بالمتر</small><strong id="perimeter">—</strong></div>
+<div class="stat"><small id="countLabel">عدد الزوايا</small><strong id="pointCount">—</strong></div>
+</div>
+<div class="controls">
+<button type="button" id="saveProject" class="action primary">حفظ في مشاريعي</button>
+<button type="button" id="copyArea" class="action light">نسخ النتيجة</button>
+<button type="button" id="printArea" class="action light">طباعة</button>
+</div>
+</section>
+</div>
+<section class="card" style="margin-top:17px">
+<h2>تعليمات الدقة والمسح</h2>
+<p class="source">للأرض ذات الزوايا المساحية، تحسب الأداة المساحة من الإحداثيات باستخدام طريقة المضلعات (Shoelace) مع التحقق من تقاطع الحدود، وتعرض مثلثات التقسيم بصريًا. أما وضع الأضلاع فيستخدم صيغة هيرون لحساب المثلثات الثلاثية الأضلاع.</p>
+<p class="source">إذا كانت الأرض مستوية أو كان المطلوب مساحتها الأفقية المساحية، فاستخدم إحداثيات على مستوى أفقي. القياسات على منحدر تحتاج إلى تصحيحها إلى المسافات الأفقية أولًا. استخدم مساحًا مرخصًا وسند الأرض عند الاعتماد الرسمي.</p>
+<p class="source">هذه الأداة للقطعة غير المنتظمة فقط. سننشئ أداة منفصلة للأرض المربعة والمستطيلة بعد اختبار هذه الأداة.</p>
+</section>
+<footer class="footer">Civil AI · Eng. Hezam Suleiman · <a href="tel:+967775264654">+967775264654</a></footer>
+</main>
+</body></html>
