@@ -68,6 +68,7 @@ hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 <script src="account-gate.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <script src="satellite-land-core.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js" defer></script>
 <script src="satellite-export.js" defer></script>
 <script src="satellite-land.js" defer></script>
 </head><body><div class="wrap">
@@ -116,7 +117,7 @@ hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 <div id="roadSummary" class="maphelp" role="status">لم ترسم شوارع بعد. اختر «رسم شارع» وحدد مساره بالنقر على الخريطة، ثم اختر «إنهاء الشارع».</div>
 <div class="export-panel">
 <h2>تصدير المخطط الهندسي</h2>
-<p class="helper">ملف AutoCAD بصيغة DXF قابل للتعديل، مع طبقات مستقلة لحدود الأرض ومراكز الشوارع والأبعاد وسهم الشمال. وملف PDF عربي عالي الوضوح A4 للطباعة، مع بيانات الشوارع المختارة.</p>
+<p class="helper">ملف AutoCAD بصيغة DXF قابل للتعديل، مع طبقات مستقلة لحدود الأرض ومراكز الشوارع والأبعاد وسهم الشمال. وملف PDF بتسميات عربية واضحة A4 للطباعة، مع بيانات الشوارع المختارة.</p>
 <div class="actions"><button type="button" id="exportDXF" class="primary">تنزيل AutoCAD DXF</button><button type="button" id="exportPDF">تنزيل PDF</button></div>
 <p class="helper">ملف DXF يحتوي على كتابات عربية (يتطلب خط AutoCAD يدعم العربية)، وPDF يحتوي نصوصًا عربية واضحة. الشوارع إما مرسومة يدويًا أو مستخرجة من OpenStreetMap عند اختيار الميزة. لا تُصدّر صور الأقمار الصناعية بسبب حقوق مزوّد الخرائط.</p>
 </div>
