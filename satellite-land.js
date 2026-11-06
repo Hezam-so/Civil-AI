@@ -1,12 +1,30 @@
 'use strict';
 (()=>{
-const $=id=>document.getElementById(id),G=window.CivilSatelliteGeometry,L=window.L,Export=window.CivilSatelliteExport;
+const $=id=>document.getElementById(id),G=window.CivilSatelliteGeometry,L=window.L,Export=window.CivilSatelliteExport,StreetEdges=window.CivilStreetEdges;
 if(!G||!L){$('mapStatus').textContent='تعذر تحميل مكتبة الخرائط أو محرك القياس. تأكد من الإنترنت، ثم حدّث الصفحة.';return}
 const fmt=(v,n=3)=>Number.isFinite(v)?new Intl.NumberFormat('en-US',{maximumFractionDigits:n}).format(v):'—';
 const parse=v=>String(v).trim()===''?NaN:Number(v);
 const unitFactors={m2:1,labna:44.44,dhamar:114.49,amran:64,taiz:20.25,ibb:56.25,ha:10000,acre:4046.8564224,ft2:.09290304};
 let coords=[],saved=[],undoStack=[],current=null,mode='add',markers=[],selected=-1;
 let roads=[],activeRoad=[],roadMarkers=[],nearbyRoads=[],nearbyRequest=null,nearbyBasis='';
+const chosenSides=()=>Array.from(document.querySelectorAll('.street-dir:checked')).map(el=>el.value);
+const nearbyAdjacent=()=>StreetEdges&&nearbyBasis===parcelSignature()
+ ?StreetEdges.classify(nearbyRoads,coords,{maxDistance:55,maxRoads:8}):[];
+function updateRoadPreview(){
+ nearbyPreview.clearLayers();
+ const selected=$('includeNearbyRoads').checked;
+ const candidates=selected?nearbyAdjacent():[];
+ candidates.forEach(road=>{
+  L.polyline(road.points.map(p=>[p.lat,p.lng]),{color:'#b258e6',weight:4,opacity:.9,dashArray:'5 5',interactive:false}).addTo(nearbyPreview);
+ });
+ const bySide={};
+ candidates.forEach(road=>(bySide[road.side]??=[]).push(road.name));
+ $('nearbyPreview').textContent=candidates.length
+  ?('شوارع بجوار الأرض: '+Object.entries(bySide).map(([side,names])=>side+' ('+names.slice(0,2).join('، ')+')').join(' — '))
+  :selected?'لم يتم العثور على شارع موثّق ملاصق أو قريب من حدود هذه القطعة ضمن 55 مترًا؛ يمكنك تحديد الجهات يدويًا.'
+    :'سيظهر هنا وصف الشوارع المجاورة عند تفعيل الخيار وجلب البيانات.';
+}
+
 const parcelSignature=()=>coords.map(p=>p.lat.toFixed(8)+','+p.lng.toFixed(8)).join('|');
 function roadBounds(){
  if(coords.length<3||!current)return null;
@@ -59,7 +77,7 @@ function parseOSMRoads(elements,bbox){
 }
 function exportRoads(){
  const manual=cloneRoads();
- return $('includeNearbyRoads').checked&&nearbyBasis===parcelSignature()?manual.concat(nearbyRoads).slice(0,70):manual;
+ return $('includeNearbyRoads').checked&&nearbyBasis===parcelSignature()?manual.concat(nearbyAdjacent()).slice(0,70):manual;
 }
 const cloneRoads=()=>roads.map(r=>({name:r.name,width:r.width,points:r.points.map(p=>({...p}))}));
 const snapshot=()=>({coords:coords.map(p=>({...p})),roads:cloneRoads(),activeRoad:activeRoad.map(p=>({...p}))});
@@ -78,7 +96,7 @@ const showStatus=(message,error=false)=>{
 };
 const map=L.map('satelliteMap',{center:[15.5,44.2],zoom:7,maxZoom:23,zoomSnap:.5,zoomDelta:.5,zoomControl:true,preferCanvas:true,doubleClickZoom:false});
 const satellite=L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{
- maxNativeZoom:19,maxZoom:23,attribution:'Tiles © Esri — Sources: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
+ maxNativeZoom:22,maxZoom:23,attribution:'Tiles © Esri — Sources: Esri, Maxar, Earthstar Geographics, and the GIS User Community'
 });
 const streets=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
  maxNativeZoom:19,maxZoom:23,attribution:'© OpenStreetMap contributors'
@@ -88,6 +106,7 @@ const boundary=L.polygon([],{color:'#f1b84c',weight:3,fillColor:'#18b6aa',fillOp
 const edgeLayer=L.layerGroup().addTo(map);
 const markerLayer=L.layerGroup().addTo(map);
 const roadLayer=L.layerGroup().addTo(map);
+const nearbyPreview=L.layerGroup().addTo(map);
 function history(){
  undoStack.push(snapshot());
  if(undoStack.length>45)undoStack.shift();
@@ -231,7 +250,7 @@ function refresh(){
   $('nearbyRoadStatus').textContent='تغيّرت حدود الأرض. فعّل الخيار مرة أخرى أو اضغط جلب الشوارع لتحديث الطرق المجاورة.';
  }
  const result=G.validate(coords);
- paint();renderTable();setNumbers(result);
+ paint();renderTable();setNumbers(result);updateRoadPreview();
 }
 map.on('click',e=>{
  if(mode==='road'){
@@ -352,13 +371,25 @@ const canExport=()=>{
  if(!current){showStatus('يجب إكمال حدود أرض صالحة قبل تنزيل المخطط.',true);return false}
  return true;
 };
-function exportData(){return{points:coords,title:$('projectTitle').value.trim()||'مخطط أرض',roads:exportRoads()}}
-$('exportDXF').onclick=()=>{
- if(!canExport())return;
+function exportData(){return{points:coords,title:$('projectTitle').value.trim()||'مخطط أرض',roads:exportRoads(),streetDirections:chosenSides()}}
+async function prepareExport(){
+ if(!canExport())return false;
+ if($('includeNearbyRoads').checked&&nearbyBasis!==parcelSignature()){
+  await $('loadNearbyRoads').onclick();
+ }
+ if($('includeNearbyRoads').checked&&nearbyAdjacent().length===0&&roads.length===0&&chosenSides().length===0){
+  showStatus('لا توجد شوارع موثقة مجاورة لإضافتها. حدّد جهة الشوارع يدويًا أو ارسم الشوارع، أو ألغِ خيار الشوارع التلقائية قبل التصدير.',true);
+  return false;
+ }
+ return true;
+}
+$('exportDXF').onclick=async()=>{
+ if(!await prepareExport())return;
  try{downloadFile(Export.createDXF(exportData(),G),'dxf','application/dxf');showStatus('تم تجهيز ملف DXF قابل للتعديل في AutoCAD؛ الشوارع والأبعاد وسهم الشمال في طبقات مستقلة.')}
  catch(e){showStatus('تعذر إنشاء DXF: '+e.message,true)}
 };
 $('includeNearbyRoads').onchange=()=>{
+ updateRoadPreview();
  if($('includeNearbyRoads').checked&&(!nearbyRoads.length||nearbyBasis!==parcelSignature()))return $('loadNearbyRoads').onclick();
  $('nearbyRoadStatus').textContent=$('includeNearbyRoads').checked
   ?('مفعّل: سيتم تضمين '+nearbyRoads.length+' شارعًا من OpenStreetMap في التصدير فقط. اضغط «جلب الشوارع» لتحديث البيانات.')
@@ -387,20 +418,40 @@ $('loadNearbyRoads').onclick=async()=>{
   const payload=await response.json();
   if(ctrl.signal.aborted||nearbyBasis&&nearbyBasis!==parcelSignature())throw Error('تم تغيير حدود الأرض أثناء جلب الطرق؛ أعد المحاولة.');
   nearbyRoads=parseOSMRoads(payload.elements,box);
-  nearbyBasis=parcelSignature();$('includeNearbyRoads').checked=true;
+  nearbyBasis=parcelSignature();$('includeNearbyRoads').checked=true;updateRoadPreview();
   $('nearbyRoadStatus').textContent='تم جلب '+nearbyRoads.length+' شارعًا من OpenStreetMap. ستظهر في DXF وPDF فقط عند تفعيل مربع الاختيار. البيانات تقريبية وقد تكون ناقصة.';
-  showStatus('تم جلب الشوارع المجاورة. يمكنك تنزيل المخطط مع الشوارع تلقائيًا.');
+  const count=nearbyAdjacent().length;
+  showStatus(count?'تم تحديد '+count+' شارعًا مجاورًا، وستظهر اتجاهاته في الملفات.':'لم نجد شوارع موثقة قريبة من حدود القطعة. يمكنك تحديد الجهات يدويًا أو رسم الشوارع مباشرة.',!count);
  }catch(err){
+  nearbyRoads=[];nearbyBasis='';updateRoadPreview();
   $('nearbyRoadStatus').textContent='تعذر استيراد الشوارع: '+(ctrl.signal.aborted?'انتهت مهلة الخادم.':err.message)+' يمكنك رسم الشوارع يدويًا بدلًا من ذلك.';
  }finally{clearTimeout(timeout);if(nearbyRequest===ctrl)nearbyRequest=null;button.disabled=false}
 };
 $('zoomCloser').onclick=()=>map.setZoom(Math.min(23,map.getZoom()+1));
+$('tryNativeImagery').onchange=()=>{
+ satellite.options.maxNativeZoom=$('tryNativeImagery').checked?22:19;
+ satellite.redraw();
+ $('imageryInfo').textContent=$('tryNativeImagery').checked
+  ?'يحاول تحميل تفاصيل أصلية أعلى حتى المستوى 22 إن وفرها المزود، ويعود تلقائيًا إلى تكبير الصورة الحالية إذا لم تتوفر.'
+  :'عرض الصور الأصلية حتى المستوى 19 فقط؛ التكبير الأكبر سيُكبّر البكسلات دون تفاصيل جديدة.';
+};
+$('enhanceImagery').onchange=()=>{
+ map.getContainer().classList.toggle('enhanced-imagery',$('enhanceImagery').checked);
+};
+let switchedToFallback=false;
+satellite.on('tileerror',()=>{
+ if(switchedToFallback||!$('tryNativeImagery').checked||map.getZoom()<20)return;
+ switchedToFallback=true;
+ satellite.options.maxNativeZoom=19;
+ satellite.redraw();
+ $('imageryInfo').textContent='هذا الموضع لا يدعم تحميل بلاطات أصلية أعلى عبر المزود الحالي، لذلك استُخدمت الصورة المتاحة مع استمرار التقريب. يمكن تفعيل تحسين التباين الظاهري.';
+});
 $('zoomSlider').oninput=e=>map.setZoom(Number(e.target.value),{animate:false});
 map.on('zoomend',()=>{
  const z=map.getZoom();$('zoomSlider').value=z.toString();$('zoomLevel').textContent=z.toFixed(1);
 });
-$('exportPDF').onclick=()=>{
- if(!canExport())return;
+$('exportPDF').onclick=async()=>{
+ if(!await prepareExport())return;
  try{downloadFile(Export.createPDF(exportData(),G),'pdf','application/pdf');showStatus('تم تجهيز مخطط PDF متجهي قابل للطباعة.')}
  catch(e){showStatus('تعذر إنشاء PDF: '+e.message,true)}
 };

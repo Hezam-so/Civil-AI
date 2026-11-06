@@ -13,7 +13,9 @@
  function safeRoads(roads){
   return (Array.isArray(roads)?roads:[]).slice(0,70).map((r,i)=>({
    name:typeof r.name==='string'?r.name.slice(0,80):'Road '+(i+1),
-   source:r.source==='OpenStreetMap'?'OpenStreetMap':'manual',
+   source:r.source==='OpenStreetMap'?'OpenStreetMap':r.source==='manual-direction'?'manual-direction':'manual',
+   side:['شمال','جنوب','شرق','غرب'].includes(r.side)?r.side:null,
+   distanceFromBoundary:Number.isFinite(r.distanceFromBoundary)?r.distanceFromBoundary:null,
    width:Number.isFinite(Number(r.width))&&Number(r.width)>0&&Number(r.width)<=100?Number(r.width):null,
    points:(Array.isArray(r.points)?r.points:[]).slice(0,100).map(p=>({lat:Number(p.lat),lng:Number(p.lng)}))
   })).filter(r=>r.points.length>=2&&r.points.every(p=>Number.isFinite(p.lat)&&Number.isFinite(p.lng)&&Math.abs(p.lat)<=85&&Math.abs(p.lng)<=180));
@@ -27,6 +29,20 @@
   const toXY=p=>({x:R*Math.cos(origin.lat*D)*lonDelta(origin.lng,p.lng)*D,y:R*(p.lat-origin.lat)*D});
   const parcel=result.points.map(toXY);
   const roads=roadData.map((road,i)=>({...road,index:i+1,xy:road.points.map(toXY)}));
+  const boundaryMinX=Math.min(...parcel.map(p=>p.x)),boundaryMaxX=Math.max(...parcel.map(p=>p.x));
+  const boundaryMinY=Math.min(...parcel.map(p=>p.y)),boundaryMaxY=Math.max(...parcel.map(p=>p.y));
+  const size=Math.max(boundaryMaxX-boundaryMinX,boundaryMaxY-boundaryMinY,10);
+  const setback=Math.max(4,Math.min(16,size*.16));
+  const sideLines={
+   'شمال':[{x:boundaryMinX-setback*.3,y:boundaryMaxY+setback},{x:boundaryMaxX+setback*.3,y:boundaryMaxY+setback}],
+   'جنوب':[{x:boundaryMinX-setback*.3,y:boundaryMinY-setback},{x:boundaryMaxX+setback*.3,y:boundaryMinY-setback}],
+   'شرق':[{x:boundaryMaxX+setback,y:boundaryMinY-setback*.3},{x:boundaryMaxX+setback,y:boundaryMaxY+setback*.3}],
+   'غرب':[{x:boundaryMinX-setback,y:boundaryMinY-setback*.3},{x:boundaryMinX-setback,y:boundaryMaxY+setback*.3}]
+  };
+  for(const side of new Set(Array.isArray(data.streetDirections)?data.streetDirections:[])){
+   if(!sideLines[side])continue;
+   roads.push({name:'شارع جهة '+side+' - تحديد يدوي',source:'manual-direction',side,index:roads.length+1,width:null,xy:sideLines[side]});
+  }
   for(const road of roads)if(road.xy.some(p=>Math.hypot(p.x,p.y)>100000))
    throw Error('Street is farther than 100 km from the parcel; remove distant road points.');
   const all=parcel.concat(...roads.map(r=>r.xy));
@@ -39,7 +55,7 @@
   const m=normalize(data,geom),lines=[];
   const write=(...v)=>lines.push(...v.map(String));
   const pair=(k,v)=>write(k,v);
-  const layers=[['PARCEL',2],['ROAD_CENTER',4],['OSM_ROADS',6],['CORNERS',1],['DIMENSIONS',3],['NORTH',5],['ANNOTATIONS',7]];
+  const layers=[['PARCEL',2],['ROAD_CENTER',4],['OSM_ROADS',6],['STREET_SIDES',5],['CORNERS',1],['DIMENSIONS',3],['NORTH',5],['ANNOTATIONS',7]];
   write('0','SECTION','2','HEADER','9','$ACADVER','1','AC1021','9','$INSUNITS','70','6','0','ENDSEC',
     '0','SECTION','2','TABLES','0','TABLE','2','LAYER','70',String(layers.length));
   layers.forEach(([name,col])=>write('0','LAYER','2',name,'70','0','62',String(col),'6','CONTINUOUS'));
@@ -67,10 +83,10 @@
    text(m.edges[i].toFixed(2)+' م',{x:(p.x+q.x)/2,y:(p.y+q.y)/2+charSize*.45},charSize*.75,'DIMENSIONS');
   });
   m.roads.forEach(road=>{
-   polyline(road.xy,road.source==='OpenStreetMap'?'OSM_ROADS':'ROAD_CENTER',false);
+   polyline(road.xy,road.source==='OpenStreetMap'?'OSM_ROADS':road.source==='manual-direction'?'STREET_SIDES':'ROAD_CENTER',false);
    const center=road.xy[Math.floor(road.xy.length/2)];
    const name=road.name||'شارع '+road.index;
-   text(name+(road.width?' - العرض '+road.width+' م':''),{x:center.x+charSize,y:center.y+charSize},charSize*.85,'ANNOTATIONS');
+   text(name+(road.side&&road.source==='OpenStreetMap'?' - '+road.side:'')+(road.width?' - العرض '+road.width+' م':''),{x:center.x+charSize,y:center.y+charSize},charSize*.85,'ANNOTATIONS');
   });
   const nx=m.maxX+m.range*.2,ny=m.maxY-m.range*.05,arrowLen=Math.max(6,m.range*.16);
   line({x:nx,y:ny},{x:nx,y:ny+arrowLen},'NORTH');
@@ -125,14 +141,15 @@
    ar(m.edges[i].toFixed(2)+' م',(v.x+next.x)/2,(v.y+next.y)/2-3,3.2,'#205d6b','center');
   });
   m.roads.forEach(road=>{
-   pdf.setLineWidth(road.source==='OpenStreetMap'?.75:1);
+   pdf.setLineWidth(road.source==='OpenStreetMap'?.75:road.source==='manual-direction'?.5:1);
    if(road.source==='OpenStreetMap')pdf.setDrawColor(215,103,33);
+   else if(road.source==='manual-direction')pdf.setDrawColor(104,79,184);
    else pdf.setDrawColor(202,57,73);
    for(let i=0;i<road.xy.length-1;i++){
     const p=xy(road.xy[i]),q=xy(road.xy[i+1]);pdf.line(p.x,p.y,q.x,q.y);
    }
    const middle=xy(road.xy[Math.floor(road.xy.length/2)]);
-   ar((road.name||'شارع '+road.index)+(road.width?' - عرض '+road.width+' م':''),middle.x,middle.y-3.5,3.4,'#a2372a','center');
+   ar((road.name||'شارع '+road.index)+(road.side&&road.source==='OpenStreetMap'?' - جهة '+road.side:'')+(road.width?' - عرض '+road.width+' م':''),middle.x,middle.y-3.5,3.4,road.source==='manual-direction'?'#684fb8':'#a2372a','center');
   });
   pdf.setDrawColor(12,58,92);pdf.setLineWidth(.8);
   pdf.line(252,150,252,112);pdf.line(252,112,248,124);pdf.line(252,112,256,124);
@@ -141,13 +158,15 @@
   ar('المساحة: '+m.area.toFixed(2)+' متر مربع',289,59,4.3);
   ar('المحيط: '+m.perimeter.toFixed(2)+' متر',289,72,4.3);
   ar('عدد الزوايا: '+m.parcel.length,289,85,4.3);
-  ar('الشوارع المضافة: '+m.roads.length,289,98,4.3);
+  ar('الشوارع في المخطط: '+m.roads.length,289,98,4.3);
+  const manualDirections=m.roads.filter(r=>r.source==='manual-direction');
+  if(manualDirections.length)ar('جهات يدوية: '+manualDirections.map(r=>r.side).join('، '),289,186,3.2,'#6546a0');
   ar('إحداثيات النقطة الأولى',289,162,4.3);
   pdf.setTextColor(30,54,78);pdf.setFontSize(8);
   pdf.text('Lat: '+m.origin.lat.toFixed(7),284,172,{align:'right'});
   pdf.text('Lon: '+m.origin.lng.toFixed(7),284,179,{align:'right'});
   ar('القياس تقريبي وليس رفعا مساحيا رسميا',286,196,3.6,'#92452d');
-  ar('مصدر الطرق التلقائية: OpenStreetMap - لا تتضمن الملفات صور الأقمار الصناعية',286,204,3.1,'#506b7a');
+  ar('الطرق التلقائية من OpenStreetMap، والجهات اليدوية إرشادية فقط. لا توجد صور فضائية في الملف',286,204,3.1,'#506b7a');
   return pdf.output('blob');
  }
  return{createDXF,createPDF,project:normalize};
