@@ -6,13 +6,18 @@ function uid(req){
  try{
  const raw=String(req.headers.cookie||'').split(';').map(x=>x.trim()).find(x=>x.startsWith(COOKIE+'='));
  if(!raw)return null;
- const [id,exp,mac]=raw.slice(COOKIE.length+1).split('.');
+ const parts=raw.slice(COOKIE.length+1).split('.');
+ if(parts.length!==3&&parts.length!==4)return null;
+ const [id,exp,versionOrMac,signature]=parts;
+ const version=parts.length===4?versionOrMac:null;
+ const mac=signature||versionOrMac;
+ if(version&&!/^[a-f0-9]{32}$/.test(version))return null;
  if(!/^[a-f0-9]{64}$/.test(id)||!/^\d{10}$/.test(exp)||!mac)return null;
  const now=Math.floor(Date.now()/1000);
  if(+exp<now||+exp>now+14*86400+60)return null;
- const expected=crypto.createHmac('sha256',process.env.CIVIL_AI_AUTH_SECRET).update(id+'.'+exp).digest('base64url');
+ const expected=crypto.createHmac('sha256',process.env.CIVIL_AI_AUTH_SECRET).update(id+'.'+exp+(version?'.'+version:'')).digest('base64url');
  const a=Buffer.from(expected),b=Buffer.from(mac);
- return a.length===b.length&&crypto.timingSafeEqual(a,b)?id:null;
+ return a.length===b.length&&crypto.timingSafeEqual(a,b)?{id,version}:null;
  }catch{return null}
 }
 const fail=(res,code,error)=>res.status(code).json({error});
@@ -22,8 +27,10 @@ module.exports=async function(req,res){
  res.setHeader('X-Content-Type-Options','nosniff');
  try{
  if(!process.env.CIVIL_AI_AUTH_SECRET||!process.env.BLOB_READ_WRITE_TOKEN)return fail(res,503,'خدمة الحفظ غير مهيأة.');
- const id=uid(req);if(!id)return fail(res,401,'يلزم تسجيل الدخول إلى حسابك.');
- const u=await read('civilai/users/'+id+'.json');if(!u)return fail(res,401,'الحساب غير موجود.');
+ const session=uid(req);if(!session)return fail(res,401,'يلزم تسجيل الدخول إلى حسابك.');
+ const id=session.id;
+ const u=await read('civilai/users/'+id+'.json');
+ if(!u||(u.sessionVersion||null)!==session.version)return fail(res,401,'انتهت الجلسة، سجل دخولك من جديد.');
  const origin=req.headers.origin,host=req.headers['x-forwarded-host']||req.headers.host;
  if(req.method!=='GET'&&origin!=='https://'+host)return fail(res,403,'Invalid request origin');
  const key='civilai/projects/'+id+'/';
