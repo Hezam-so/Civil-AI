@@ -23,18 +23,32 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   if(!r.ok)throw Error(data.error||'HTTP '+r.status);
   return data;
  };
+
+ const recoveryApi=async(action,body)=>{
+  const r=await fetch('/api/password-recovery?action='+encodeURIComponent(action),{
+    method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)
+  });
+  const data=await r.json().catch(()=>({error:'تعذر قراءة رد خدمة الاستعادة.'}));
+  if(!r.ok)throw Error(data.error||'HTTP '+r.status);
+  return data;
+ };
  const panel=document.createElement('div');panel.id='civil-auth-overlay';
  const show=(mode='login',initialError='')=>{
   document.body.classList.remove('civil-authenticated');document.body.classList.add('civil-auth-screen');
   panel.replaceChildren();
   const card=document.createElement('div');card.className='auth-card';
-  card.innerHTML='<h1>Civil AI <span style="color:#59dbea">| حسابك الخاص</span></h1><p>سجّل الدخول للاطلاع على مشاريعك الخاصة من هذا الحساب.</p><form id="civil-auth-form"><div id="civil-name-field"><label for="civil-name">اسم المستخدم</label><input id="civil-name" type="text" maxlength="90" autocomplete="name" placeholder="الاسم الكامل"></div><label for="civil-email">البريد الإلكتروني</label><input id="civil-email" type="email" autocomplete="email" required placeholder="name@example.com"><label for="civil-password">كلمة المرور (6 أحرف أو أرقام على الأقل)</label><input id="civil-password" type="password" autocomplete="current-password" required minlength="6" maxlength="128"><div style="margin-top:17px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button id="civil-auth-submit" type="submit">تسجيل الدخول</button><button id="civil-auth-toggle" type="button" class="auth-switch">إنشاء حساب جديد</button></div><div class="auth-error" role="alert" id="civil-auth-error"></div></form><p class="auth-note" style="margin-top:16px">كل حساب له مساحة مشاريع خاصة. استخدم بريدك الشخصي. تأكيد ملكية البريد واستعادة كلمة المرور غير متاحين بعد؛ لا تستخدم المنصة لحفظ ملفات عملاء حساسة قبل تفعيلهما.</p>';
+  card.innerHTML='<h1>Civil AI <span style="color:#59dbea">| حسابك الخاص</span></h1><p>سجّل الدخول للاطلاع على مشاريعك الخاصة من هذا الحساب.</p><form id="civil-auth-form"><div id="civil-name-field"><label for="civil-name">اسم المستخدم</label><input id="civil-name" type="text" maxlength="90" autocomplete="name" placeholder="الاسم الكامل"></div><label for="civil-email">البريد الإلكتروني</label><input id="civil-email" type="email" autocomplete="email" required placeholder="name@example.com"><label for="civil-password">كلمة المرور (6 أحرف أو أرقام على الأقل)</label><input id="civil-password" type="password" autocomplete="current-password" required minlength="6" maxlength="128"><div style="margin-top:17px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button id="civil-auth-submit" type="submit">تسجيل الدخول</button><button id="civil-auth-toggle" type="button" class="auth-switch">إنشاء حساب جديد</button><button id="civil-forgot" type="button" class="auth-switch">نسيت كلمة المرور؟</button></div><div class="auth-error" role="alert" id="civil-auth-error"></div></form><p class="auth-note" style="margin-top:16px">كل حساب له مساحة مشاريع خاصة. استخدم بريدك الشخصي. تأكيد ملكية البريد واستعادة كلمة المرور غير متاحين بعد؛ لا تستخدم المنصة لحفظ ملفات عملاء حساسة قبل تفعيلهما.</p>';
   panel.append(card);
   let register=mode==='register';
   const n=card.querySelector('#civil-name-field'),pw=card.querySelector('#civil-password'),btn=card.querySelector('#civil-auth-submit'),toggle=card.querySelector('#civil-auth-toggle'),err=card.querySelector('#civil-auth-error');
   const sync=()=>{n.style.display=register?'block':'none';btn.textContent=register?'إنشاء الحساب':'تسجيل الدخول';toggle.textContent=register?'لدي حساب بالفعل':'إنشاء حساب جديد';pw.autocomplete=register?'new-password':'current-password'};
   sync();err.textContent=initialError;
   toggle.onclick=()=>{register=!register;sync();err.textContent=''};
+  const forgot=card.querySelector('#civil-forgot');
+  const updateForgot=()=>forgot.style.display=register?'none':'inline-flex';
+  updateForgot();
+  toggle.addEventListener('click',updateForgot);
+  forgot.onclick=()=>showRecovery('request',card.querySelector('#civil-email').value);
   card.querySelector('form').onsubmit=async(e)=>{
    e.preventDefault();btn.disabled=true;err.textContent='';
    try{
@@ -44,6 +58,41 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
    }catch(ex){err.textContent=ex.message||'حدث خطأ أثناء الدخول';btn.disabled=false}
   };
   document.body.append(panel);
+ };
+
+ const showRecovery=(phase='request',initialEmail='')=>{
+  document.body.classList.remove('civil-authenticated');
+  document.body.classList.add('civil-auth-screen');
+  panel.replaceChildren();
+  const card=document.createElement('div');card.className='auth-card';
+  const title=document.createElement('h1');title.textContent='استعادة كلمة مرور Civil AI';
+  const intro=document.createElement('p');
+  intro.textContent=phase==='request'?'أدخل بريدك المسجل وسنرسل رمز تحقق مكوّنًا من 8 أرقام إذا كانت خدمة الإرسال مفعّلة.':'أدخل الرمز الذي وصل لبريدك، واختر كلمة مرور جديدة.';
+  const form=document.createElement('form');
+  form.innerHTML='<label for="civil-recovery-email">البريد الإلكتروني</label><input id="civil-recovery-email" type="email" required autocomplete="email" maxlength="254"><div id="civil-recovery-fields"><label for="civil-recovery-code">رمز التحقق (8 أرقام)</label><input id="civil-recovery-code" type="text" required inputmode="numeric" autocomplete="one-time-code" minlength="8" maxlength="8" pattern="[0-9]{8}" placeholder="00000000"><label for="civil-new-password">كلمة المرور الجديدة (6 أحرف أو أرقام على الأقل)</label><input id="civil-new-password" type="password" required autocomplete="new-password" minlength="6" maxlength="128"></div><div style="margin-top:17px;display:flex;gap:8px;flex-wrap:wrap"><button type="submit" id="civil-recovery-submit"></button><button type="button" class="auth-switch" id="civil-recovery-back">العودة لتسجيل الدخول</button></div><div class="auth-error" id="civil-recovery-error" role="alert"></div>';
+  card.append(title,intro,form);panel.append(card);document.body.append(panel);
+  const email=form.querySelector('#civil-recovery-email'),code=form.querySelector('#civil-recovery-code'),pw=form.querySelector('#civil-new-password'),fields=form.querySelector('#civil-recovery-fields'),btn=form.querySelector('#civil-recovery-submit'),err=form.querySelector('#civil-recovery-error');
+  email.value=initialEmail||'';
+  fields.style.display=phase==='request'?'none':'block';
+  btn.textContent=phase==='request'?'إرسال رمز التحقق':'تغيير كلمة المرور';
+  form.querySelector('#civil-recovery-back').onclick=()=>show('login');
+  form.onsubmit=async(event)=>{
+   event.preventDefault();btn.disabled=true;err.textContent='';
+   try{
+    if(phase==='request'){
+      const result=await recoveryApi('request',{email:email.value});
+      showRecovery('confirm',email.value);
+      const msg=panel.querySelector('#civil-recovery-message');
+      if(msg)msg.textContent=result.message||'تحقق من بريدك للحصول على رمز الاستعادة.';
+    }else{
+      const result=await recoveryApi('confirm',{email:email.value,code:code.value,newPassword:pw.value});
+      show('login',result.message||'تم تغيير كلمة المرور؛ سجل الدخول من جديد.');
+    }
+   }catch(e){err.textContent=e.message||'تعذر استعادة كلمة المرور.';btn.disabled=false}
+  };
+  const message=document.createElement('p');message.id='civil-recovery-message';message.className='auth-note';
+  message.textContent=phase==='confirm'?'الرمز صالح لعشر دقائق ويُستخدم مرة واحدة. يمكن الرجوع وإعادة طلب الرمز عند انتهاء صلاحيته.':'لن نظهر ما إذا كان عنوان البريد مسجّلًا أم لا.';
+  card.append(message);
  };
  const loggedIn=(user)=>{
   window.CivilAccount=user;document.body.classList.remove('civil-auth-screen');document.body.classList.add('civil-authenticated');panel.remove();
