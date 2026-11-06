@@ -32,12 +32,54 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   if(!r.ok)throw Error(data.error||'HTTP '+r.status);
   return data;
  };
+ const emailLookupCache=new Map();
+ const validEmail=(mail)=>/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(String(mail||'').trim())&&String(mail||'').trim().length<=254;
+ async function lookupEmail(mail){
+   const key=String(mail||'').trim().toLowerCase();
+   const prior=emailLookupCache.get(key);
+   if(prior&&Date.now()-prior.time<5*60*1000)return prior.result;
+   const result=await api('check-email',{email:key});
+   emailLookupCache.set(key,{time:Date.now(),result});
+   return result;
+ }
+ function autoCheckEmail(input,statusNode,{onResult}={}){
+   let timeout=null,serial=0,lastSeen='';
+   const check=async()=>{
+     const key=input.value.trim().toLowerCase();
+     const ticket=++serial;
+     if(!key){statusNode.textContent='';onResult?.(null);return}
+     if(!validEmail(key)){statusNode.textContent='أكمل كتابة عنوان بريد إلكتروني صحيح.';onResult?.(null);return}
+     if(key===lastSeen&&!statusNode.dataset.error)return;
+     lastSeen=key;delete statusNode.dataset.error;
+     statusNode.textContent='جاري التحقق من تسجيل البريد…';
+     try{
+       const answer=await lookupEmail(key);
+       if(ticket!==serial||input.value.trim().toLowerCase()!==key)return;
+       statusNode.textContent=answer.message||'تم التحقق من البريد.';
+       onResult?.(answer);
+     }catch(e){
+       if(ticket!==serial||input.value.trim().toLowerCase()!==key)return;
+       statusNode.dataset.error='true';
+       statusNode.textContent=e.message||'تعذر التحقق حاليًا.';
+       onResult?.(null);
+     }
+   };
+   input.addEventListener('input',()=>{
+     clearTimeout(timeout);serial++;lastSeen='';
+     statusNode.textContent=input.value.trim()?'أكمل الكتابة وسيتم الفحص تلقائيًا…':'';
+     onResult?.(null);
+     if(validEmail(input.value))timeout=setTimeout(check,1400);
+   });
+   input.addEventListener('blur',()=>{clearTimeout(timeout);if(validEmail(input.value))check()});
+   if(validEmail(input.value))timeout=setTimeout(check,300);
+   return {check};
+ }
  const panel=document.createElement('div');panel.id='civil-auth-overlay';
  const show=(mode='login',initialError='')=>{
   document.body.classList.remove('civil-authenticated');document.body.classList.add('civil-auth-screen');
   panel.replaceChildren();
   const card=document.createElement('div');card.className='auth-card';
-  card.innerHTML='<h1>Civil AI <span style="color:#59dbea">| حسابك الخاص</span></h1><p>سجّل الدخول للاطلاع على مشاريعك الخاصة من هذا الحساب.</p><form id="civil-auth-form"><div id="civil-name-field"><label for="civil-name">اسم المستخدم</label><input id="civil-name" type="text" maxlength="90" autocomplete="name" placeholder="الاسم الكامل"></div><label for="civil-email">البريد الإلكتروني</label><input id="civil-email" type="email" autocomplete="email" required placeholder="name@example.com"><label for="civil-password" id="civil-password-label">كلمة المرور</label><input id="civil-password" type="password" autocomplete="current-password" required minlength="6" maxlength="128"><div style="margin-top:17px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button id="civil-auth-submit" type="submit">تسجيل الدخول</button><button id="civil-auth-toggle" type="button" class="auth-switch">إنشاء حساب جديد</button><button id="civil-forgot" type="button" class="auth-switch">نسيت كلمة المرور؟</button><button id="civil-check-email" type="button" class="auth-switch">هل بريدي مسجّل؟</button></div><p id="civil-email-status" class="auth-note" role="status"></p><div class="auth-error" role="alert" id="civil-auth-error"></div></form><p class="auth-note" style="margin-top:16px">كل حساب له مساحة مشاريع خاصة. استخدم بريدك الشخصي. تأكيد ملكية البريد عند إنشاء الحساب غير مفعّل بعد. استعادة كلمة المرور برمز بريد إلكتروني تتطلب تفعيل مزوّد الإرسال. لا تستخدم المنصة لملفات عملاء حساسة قبل اكتمال الحماية والاختبارات.</p>';
+  card.innerHTML='<h1>Civil AI <span style="color:#59dbea">| حسابك الخاص</span></h1><p>سجّل الدخول للاطلاع على مشاريعك الخاصة من هذا الحساب.</p><form id="civil-auth-form"><div id="civil-name-field"><label for="civil-name">اسم المستخدم</label><input id="civil-name" type="text" maxlength="90" autocomplete="name" placeholder="الاسم الكامل"></div><label for="civil-email">البريد الإلكتروني</label><input id="civil-email" type="email" autocomplete="email" required placeholder="name@example.com"><label for="civil-password" id="civil-password-label">كلمة المرور</label><input id="civil-password" type="password" autocomplete="current-password" required minlength="6" maxlength="128"><div style="margin-top:17px;display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button id="civil-auth-submit" type="submit">تسجيل الدخول</button><button id="civil-auth-toggle" type="button" class="auth-switch">إنشاء حساب جديد</button><button id="civil-forgot" type="button" class="auth-switch">نسيت كلمة المرور؟</button></div><p id="civil-email-status" class="auth-note" role="status"></p><div class="auth-error" role="alert" id="civil-auth-error"></div></form><p class="auth-note" style="margin-top:16px">كل حساب له مساحة مشاريع خاصة. استخدم بريدك الشخصي. تأكيد ملكية البريد عند إنشاء الحساب غير مفعّل بعد. استعادة كلمة المرور برمز بريد إلكتروني تتطلب تفعيل مزوّد الإرسال. لا تستخدم المنصة لملفات عملاء حساسة قبل اكتمال الحماية والاختبارات.</p>';
   panel.append(card);
   let register=mode==='register';
   const n=card.querySelector('#civil-name-field'),pw=card.querySelector('#civil-password'),btn=card.querySelector('#civil-auth-submit'),toggle=card.querySelector('#civil-auth-toggle'),err=card.querySelector('#civil-auth-error');
@@ -49,17 +91,8 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   updateForgot();
   toggle.addEventListener('click',updateForgot);
   forgot.onclick=()=>showRecovery('request',card.querySelector('#civil-email').value);
-  const checkBtn=card.querySelector('#civil-check-email'),checkText=card.querySelector('#civil-email-status');
-  checkBtn.onclick=async()=>{
-    const mail=card.querySelector('#civil-email');
-    if(!mail.reportValidity())return;
-    checkBtn.disabled=true;checkText.textContent='جاري فحص تسجيل البريد…';
-    try{
-      const result=await api('check-email',{email:mail.value});
-      checkText.textContent=result.message||'تعذر تحديد حالة البريد.';
-    }catch(ex){checkText.textContent=ex.message||'تعذر فحص البريد.'}
-    finally{checkBtn.disabled=false}
-  };
+  const checkText=card.querySelector('#civil-email-status');
+  autoCheckEmail(card.querySelector('#civil-email'),checkText);
   card.querySelector('form').onsubmit=async(e)=>{
    e.preventDefault();btn.disabled=true;err.textContent='';
    try{
@@ -80,7 +113,7 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   const intro=document.createElement('p');
   intro.textContent=phase==='request'?'أدخل بريدك المسجل وسنرسل رمز تحقق مكوّنًا من 8 أرقام إذا كانت خدمة الإرسال مفعّلة.':'أدخل الرمز الذي وصل لبريدك، واختر كلمة مرور جديدة.';
   const form=document.createElement('form');
-  form.innerHTML='<label for="civil-recovery-email">البريد الإلكتروني</label><input id="civil-recovery-email" type="email" required autocomplete="email" maxlength="254"><div id="civil-recovery-fields"><label for="civil-recovery-code">رمز التحقق (8 أرقام)</label><input id="civil-recovery-code" type="text" required inputmode="numeric" autocomplete="one-time-code" minlength="8" maxlength="8" pattern="[0-9]{8}" placeholder="00000000"><label for="civil-new-password">كلمة المرور الجديدة (8 أحرف أو أرقام على الأقل)</label><input id="civil-new-password" type="password" required autocomplete="new-password" minlength="8" maxlength="128"></div><div style="margin-top:17px;display:flex;gap:8px;flex-wrap:wrap"><button type="submit" id="civil-recovery-submit"></button><button type="button" class="auth-switch" id="civil-recovery-check">فحص تسجيل البريد</button><button type="button" class="auth-switch" id="civil-recovery-back">العودة لتسجيل الدخول</button></div><div class="auth-error" id="civil-recovery-error" role="alert"></div>';
+  form.innerHTML='<label for="civil-recovery-email">البريد الإلكتروني</label><input id="civil-recovery-email" type="email" required autocomplete="email" maxlength="254"><div id="civil-recovery-fields"><label for="civil-recovery-code">رمز التحقق (8 أرقام)</label><input id="civil-recovery-code" type="text" required inputmode="numeric" autocomplete="one-time-code" minlength="8" maxlength="8" pattern="[0-9]{8}" placeholder="00000000"><label for="civil-new-password">كلمة المرور الجديدة (8 أحرف أو أرقام على الأقل)</label><input id="civil-new-password" type="password" required autocomplete="new-password" minlength="8" maxlength="128"></div><div style="margin-top:17px;display:flex;gap:8px;flex-wrap:wrap"><button type="submit" id="civil-recovery-submit"></button><button type="button" class="auth-switch" id="civil-recovery-back">العودة لتسجيل الدخول</button></div><div class="auth-error" id="civil-recovery-error" role="alert"></div>';
   card.append(title,intro,form);panel.append(card);document.body.append(panel);
   const email=form.querySelector('#civil-recovery-email'),code=form.querySelector('#civil-recovery-code'),pw=form.querySelector('#civil-new-password'),fields=form.querySelector('#civil-recovery-fields'),btn=form.querySelector('#civil-recovery-submit'),err=form.querySelector('#civil-recovery-error');
   email.value=initialEmail||'';
@@ -89,34 +122,27 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   code.disabled=phase==='request';pw.disabled=phase==='request';
   btn.textContent=phase==='request'?'إرسال رمز التحقق':'تغيير كلمة المرور';
   form.querySelector('#civil-recovery-back').onclick=()=>show('login');
-  const check= form.querySelector('#civil-recovery-check');
   const message=document.createElement('p');message.id='civil-recovery-message';message.className='auth-note';
-  message.textContent=phase==='confirm'?'الرمز صالح لعشر دقائق ويُستخدم مرة واحدة.':'سيظهر هنا ما إذا كان البريد مسجّلًا في الموقع.';
-  check.style.display=phase==='request'?'inline-flex':'none';
-  check.onclick=async()=>{
-    if(!email.reportValidity())return;
-    check.disabled=true;message.textContent='جاري التحقق من حالة البريد…';
-    try{
-      const result=await api('check-email',{email:email.value});
-      message.textContent=result.message||'لم نتمكن من تحديد حالة البريد.';
-    }catch(e){message.textContent=e.message||'تعذر فحص البريد.'}
-    finally{check.disabled=false}
-  };
+  message.textContent=phase==='confirm'?'الرمز صالح لعشر دقائق ويُستخدم مرة واحدة.':'اكتب بريدك وسيتم فحص تسجيله تلقائيًا.';
+  let registration=null;
   if(phase==='request'){
+    autoCheckEmail(email,message,{onResult:(value)=>{registration=value}});
     fetch('/api/password-recovery?action=status',{credentials:'same-origin',cache:'no-store'})
-    .then(r=>r.ok?r.json():null).then(status=>{
-      if(status&&!status.emailDeliveryConfigured){
-        message.textContent='إرسال الرمز غير متاح حاليًا: لم يربط مالك الموقع مزود البريد الإلكتروني. لن يُرسل أي رمز قبل تفعيل الخدمة.';
-        btn.disabled=true;btn.title='يتطلب تفعيل خدمة البريد أولًا';
-      }
-    }).catch(()=>{});
+      .then(r=>r.ok?r.json():null).then(status=>{
+        if(status&&!status.emailDeliveryConfigured){
+          const explanation='خدمة إرسال الرموز غير مفعّلة على الموقع حتى الآن. اضغط «إرسال رمز التحقق» لمعرفة تفاصيل المشكلة. لا يمكن إرسال رسالة قبل ربط مزود البريد.';
+          intro.textContent=explanation;
+          btn.title='لم يربط مالك الموقع خدمة إرسال البريد بعد';
+        }
+      }).catch(()=>{});
   }
   form.onsubmit=async(event)=>{
    event.preventDefault();btn.disabled=true;err.textContent='';
    try{
     if(phase==='request'){
-      const found=await api('check-email',{email:email.value});
+      const found=registration&&emailLookupCache.get(email.value.trim().toLowerCase())?.result===registration?registration:await lookupEmail(email.value);
       if(!found.registered)throw Error('هذا البريد غير مسجّل. يمكنك العودة وإنشاء حساب جديد.');
+      // The submit button stays responsive even while outgoing mail is unconfigured.
       const result=await recoveryApi('request',{email:email.value});
       showRecovery('confirm',email.value);
       const msg=panel.querySelector('#civil-recovery-message');
