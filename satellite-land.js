@@ -39,21 +39,22 @@ function distanceTooltip(a,b){
  const length=G.distance(a,b);
  return fmt(length,length<10?2:1)+' م';
 }
+function renderEdges(){
+ edgeLayer.clearLayers();
+ if(coords.length<2)return;
+ const result=G.validate(coords),edgeCount=result.valid?coords.length:coords.length-1;
+ for(let i=0;i<edgeCount;i++){
+  const a=coords[i],b=coords[(i+1)%coords.length];
+  if(!a||!b)continue;
+  L.polyline([angleLatLng(a),angleLatLng(b)],{color:'#f4c96e',weight:3,opacity:.9,interactive:false}).addTo(edgeLayer);
+  const center=L.latLng((a.lat+b.lat)/2,(a.lng+b.lng)/2);
+  L.tooltip({permanent:true,direction:'center',className:'distance-tooltip',interactive:false,opacity:.95})
+   .setLatLng(center).setContent(distanceTooltip(a,b)).addTo(edgeLayer);
+ }
+}
 function paint(){
  boundary.setLatLngs(coords.map(angleLatLng));
- edgeLayer.clearLayers();markerLayer.clearLayers();markers=[];
- if(coords.length>1){
-  const result=G.validate(coords),closed=result.valid;
-  const edgeCount=closed?coords.length:coords.length-1;
-  for(let i=0;i<edgeCount;i++){
-   const a=coords[i],b=coords[(i+1)%coords.length];
-   if(!a||!b)continue;
-   const edge=L.polyline([angleLatLng(a),angleLatLng(b)],{color:'#f4c96e',weight:3,opacity:.9,interactive:false}).addTo(edgeLayer);
-   const center=L.latLng((a.lat+b.lat)/2,(a.lng+b.lng)/2);
-   const label=L.tooltip({permanent:true,direction:'center',className:'distance-tooltip',interactive:false,opacity:.95})
-    .setLatLng(center).setContent(distanceTooltip(a,b)).addTo(edgeLayer);
-  }
- }
+ renderEdges();markerLayer.clearLayers();markers=[];
  coords.forEach((p,i)=>{
   const marker=L.marker(angleLatLng(p),{icon:icon(i),draggable:true,autoPan:true,zIndexOffset:120}).addTo(markerLayer);
   marker.on('click',()=>{selected=i;refresh()});
@@ -64,10 +65,7 @@ function paint(){
    coords[i]={lat:Number(pos.lat.toFixed(8)),lng:Number(pos.lng.toFixed(8))};
    const checked=G.validate(coords);
    boundary.setLatLngs(coords.map(angleLatLng));
-   for(const layer of edgeLayer.getLayers()){
-    if(layer instanceof L.Tooltip)continue;
-    if(layer instanceof L.Polyline&&!layer.options.fill){}
-   }
+   renderEdges();
    setNumbers(checked,true);
   });
   marker.on('dragend',e=>{
@@ -220,7 +218,6 @@ $('restoreProject').onclick=()=>{
  map.fitBounds(L.latLngBounds(coords.map(angleLatLng)),{padding:[40,40],maxZoom:19});
  showStatus('استُعيدت حدود المشروع المحفوظ: '+p.title);
 };
-map.on('tileerror',()=>{});
 refresh();selectMode('add');
 setTimeout(()=>map.invalidateSize(),300);
 })();
