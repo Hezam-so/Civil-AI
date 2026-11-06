@@ -30,8 +30,14 @@ input:focus,select:focus{outline:2px solid #49d5df}
 .leaflet-tooltip.distance-tooltip{background:#072638eb;color:#f4edbf;border:1px solid #9ebcb9;padding:3px 6px;box-shadow:none;font-size:11px;font-weight:700}
 .leaflet-tooltip.distance-tooltip:before{display:none}
 .leaflet-div-icon.survey-pin{background:transparent;border:none}
-.survey-pin>div{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#e5aa56;border:2px solid #fff;color:#09263a;font-weight:800;box-shadow:0 2px 7px #1119}
+.survey-pin>div{display:grid;place-items:center;width:15px;height:15px;border-radius:50%;background:#e5aa56;border:1.2px solid #fff;color:#09263a;font-size:9px;font-weight:800;box-shadow:0 1px 4px #1119}
 .survey-pin.selected>div{background:#54d9d9;border-color:#fff}
+.road-controls{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;padding:10px 0 14px}
+.road-controls>.field{min-width:145px;flex:1;margin-bottom:0}
+.road-controls>button{padding:9px;background:#713b47;color:white;border:1px solid #ae7381;border-radius:9px}
+.map-bottom-toolbar{margin-top:12px;margin-bottom:5px}
+.export-panel{border:1px solid #3e7a8c;background:#10364a;border-radius:12px;padding:13px;margin-top:14px}
+.export-panel .actions{margin-top:9px}
 .maphelp{margin:10px 0 0;color:#bbd8e8;font-size:12px}
 .summary{border:1px solid #367d92;border-radius:12px;background:#0c314b;padding:13px;margin-bottom:12px}
 .summary strong{display:block;font-size:clamp(25px,4vw,36px);color:#8df2e9;font-variant-numeric:tabular-nums;direction:ltr;text-align:right;overflow-wrap:anywhere}
@@ -53,6 +59,7 @@ hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 <script src="account-gate.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
 <script src="satellite-land-core.js" defer></script>
+<script src="satellite-export.js" defer></script>
 <script src="satellite-land.js" defer></script>
 </head><body><div class="wrap">
 <header class="top"><div class="brand">CIVIL <b>AI</b></div><nav class="links"><a href="/">الرئيسية</a><a href="irregular-land.html">رسم أرض غير منتظمة</a><a href="land-area.html">تحويل المساحات</a></nav></header>
@@ -64,12 +71,7 @@ hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 <div class="notice">هذا قياس <b>تقديري</b> من إحداثيات النقاط التي تحددها على الصورة، ودقة النتيجة تعتمد على وضوح الصورة وحداثتها وصحة تحديد الحدود. ليس رفعًا مساحيًا معتمدًا ولا يُستخدم بدل مستندات الملكية أو المسّاح المختص. الصور الفضائية ليست تصويرًا مباشرًا في الوقت الحقيقي.</div>
 <div class="layout">
 <section class="panel" aria-label="الخريطة وقياس الحدود">
-<div class="toolbar">
-<button type="button" id="addMode" class="primary" aria-pressed="true">＋ إضافة الزوايا</button>
-<button type="button" id="moveMode" aria-pressed="false">✥ تحريك الخريطة</button>
-<button type="button" id="undoPoint">↶ تراجع</button>
-<button type="button" id="clearPoints">مسح الحدود</button>
-</div>
+
 <div class="toolbar">
 <button type="button" id="satelliteLayer" aria-pressed="true">🛰️ أقمار صناعية</button>
 <button type="button" id="streetLayer" aria-pressed="false">🗺️ خريطة الطرق</button>
@@ -81,7 +83,27 @@ hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 <button type="button" id="jumpTo" style="margin-top:17px">الذهاب إلى الإحداثيات</button>
 </div>
 <div id="satelliteMap" role="application" aria-label="خريطة تفاعلية لرسم حدود الأرض"></div>
-<p class="maphelp">أولًا انتقل إلى موقع الأرض وقرّب الصورة. اضغط «إضافة الزوايا» ثم حدد الحدود بالترتيب. لتحريك نقطة، اسحب العلامة المرقمة بإصبعك. تظهر المسافات بالمتر على خطوط الحدود.</p>
+<div class="toolbar map-bottom-toolbar" aria-label="أدوات تحرير الرسم تحت الخريطة">
+<button type="button" id="addMode" class="primary" aria-pressed="true">＋ إضافة الزوايا</button>
+<button type="button" id="moveMode" aria-pressed="false">✥ تحريك الخريطة</button>
+<button type="button" id="roadMode" aria-pressed="false">🛣 رسم شارع</button>
+<button type="button" id="finishRoad">إنهاء الشارع</button>
+<button type="button" id="undoPoint">↶ تراجع</button>
+<button type="button" id="clearPoints">مسح الحدود</button>
+</div>
+<div class="road-controls">
+<div class="field"><label for="roadName">اسم الشارع (اختياري)</label><input id="roadName" maxlength="80" value="Road 1" placeholder="مثال: شارع 8 متر"></div>
+<div class="field"><label for="roadWidth">عرض الشارع بالمتر (للتوثيق)</label><input id="roadWidth" type="number" step="any" min="0" max="100" value="8"></div>
+<button id="clearRoads" type="button">حذف جميع الشوارع</button>
+</div>
+<div id="roadSummary" class="maphelp" role="status">لم ترسم شوارع بعد. اختر «رسم شارع» وحدد مساره بالنقر على الخريطة، ثم اختر «إنهاء الشارع».</div>
+<div class="export-panel">
+<h2>تصدير المخطط الهندسي</h2>
+<p class="helper">ملف AutoCAD بصيغة DXF قابل للتعديل، مع طبقات مستقلة لحدود الأرض ومراكز الشوارع والأبعاد وسهم الشمال. وملف PDF متجهي A4 للطباعة.</p>
+<div class="actions"><button type="button" id="exportDXF" class="primary">تنزيل AutoCAD DXF</button><button type="button" id="exportPDF">تنزيل PDF</button></div>
+<p class="helper">لا تُصدّر صور الأقمار الصناعية نفسها بسبب حقوق مزوّد الخرائط. الشوارع تُرسَم يدويًا، وليست حدودًا رسمية للطرق. قياس العرض المدوّن وصفٌ للشارع ولا يمثل حرمًا قانونيًا.</p>
+</div>
+<p class="maphelp">انتقل إلى موقع الأرض وقرّب الصورة. أدوات الرسم الآن أسفل الخريطة؛ اختر «إضافة الزوايا» وحدد حدود القطعة، أو «رسم شارع» لرسم محاور الشوارع المتصلة. اسحب العلامات الصغيرة لتعديلها، ويمكنك تحريك الخريطة في أي وقت.</p>
 <p class="maphelp">خرائط الأقمار الصناعية: Esri World Imagery مع نسب البيانات الظاهرة في الخريطة؛ خريطة الطرق: OpenStreetMap. يتطلب تحميل الصور اتصالًا بالإنترنت، وقد تُطبّق قيود استخدام مزود الخرائط.</p>
 </section>
 <aside class="panel" aria-label="نتائج القياس والملفات">
