@@ -110,7 +110,7 @@
    const response=await fetch('/api/assistant',{method:'GET',cache:'no-store',credentials:'same-origin'});
    if(!response.ok)throw Error('الخدمة غير متاحة');
    const info=await response.json();
-   $('aiStatus').textContent=info.enabled?'متصل بالنموذج الذكي · '+info.model+' · '+info.dailyAILimit+' أسئلة يوميًا':'الحاسبات الهندسية متاحة · يلزم تفعيل Vercel AI Gateway للأسئلة الحرة';
+   $('aiStatus').textContent=info.enabled?'متصل بالنموذج الذكي · '+info.model+' · أسئلة غير محدودة يوميًا (حسب رصيد الخدمة)':'الحاسبات الهندسية متاحة · يلزم تفعيل Vercel AI Gateway للأسئلة الحرة';
    if(!info.enabled)$('chatHint').textContent+=' وضع الذكاء الاصطناعي الحر غير مفعّل حاليًا، لكن الحسابات والأوامر البسيطة تعمل.';
   }catch(e){$('aiStatus').textContent='فشل الاتصال بخادم المساعد — '+e.message}
  })();
