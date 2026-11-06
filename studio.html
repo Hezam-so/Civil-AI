@@ -28,6 +28,7 @@
     <button data-page="earth"><span class="nicon">▱</span><span data-i18n="navEarth">الحفر والردم</span></button>
     <button data-page="rebar"><span class="nicon">≋</span><span data-i18n="navRebar">حصر حديد التسليح</span></button>
     <button data-page="files"><span class="nicon">▦</span><span data-i18n="navFiles">مكتبة الملفات</span></button>
+    <a href="upload.html" class="studio-upload-link" style="display:block;padding:11px 14px;margin:5px 0 8px;border-radius:10px;border:1px solid #2779a2;background:#123d5a;color:#c7f2ff;text-decoration:none;font-weight:650">⇧ إرفاق المخططات الهندسية</a>
     <button data-page="assistant"><span class="nicon">✦</span><span data-i18n="navAI">المساعد الذكي</span></button>
   </nav>
   <div class="aside-foot">🔒 <span data-i18n="localMsg">الملفات تُحفظ محليًا في هذا المتصفح فقط.</span><p><a href="/" data-i18n="backHome">← العودة إلى Civil AI</a></p></div>
@@ -137,5 +138,5 @@ $('saveStudioProject').onclick=async()=>{
 };
 
 // Initial calculations & UI
-tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'));$('secType').dispatchEvent(new Event('change'));calcBeam();$('calcSection').click();$('calcFoot').click();$('calcEarth').click();calcBars();window.addEventListener('civil-auth-ready',()=>initVault());if(window.CivilAccount)initVault();aiStatus();
+tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'));$('secType').dispatchEvent(new Event('change'));calcBeam();$('calcSection').click();$('calcFoot').click();$('calcEarth').click();calcBars();window.addEventListener('civil-auth-ready',()=>initVault());if(window.CivilAccount)initVault();aiStatus();if(new URLSearchParams(location.search).get('open')==='files')nav('files');
 </script></body></html>
