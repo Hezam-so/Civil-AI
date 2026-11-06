@@ -1,6 +1,10 @@
 'use strict';
 (function(){
  const $=id=>document.getElementById(id),chat=$('chatLog'),outputs=$('toolOutputs');
+ const approvedRoutes=new Set(['/?open=home','/?open=beam','/?open=concrete','/?open=units','/?open=projects','/studio.html',
+ '/studio.html?open=section','/studio.html?open=footing','/studio.html?open=earth','/studio.html?open=rebar','/studio.html?open=files',
+ '/land-area.html','/irregular-land.html','/satellite-land.html','/upload.html','/cad-viewer.html','/model-viewer.html','/robot-viewer.html','/assistant.html']);
+ const extraSelectOptions={loadType:['udl','center_point'],unit:['sanaa_labna','dhamar_labna','amran_labna','taiz_10_qasaba','hectare','acre']};
  const definitions={
  beam_udl:[['spanM','طول البحر L (م)',6],['loadKnPerM','الحمل المنتظم w (kN/m)',10]],
  beam_point:[['spanM','طول البحر L (م)',6],['loadKn','الحمل المركز P (kN)',20]],
@@ -8,7 +12,12 @@
  footing_pressure:[['axialLoadKn','الحمل المحوري (kN)',300],['lengthM','طول القاعدة (م)',2],['widthM','عرض القاعدة (م)',2],['allowableKpa','ضغط التربة المسموح (kPa، اختياري)',null]],
  rebar_weight:[['diameterMm','قطر السيخ (mm)',16],['totalLengthM','مجموع أطوال الأسياخ (m)',100]],
  rect_section:[['widthMm','عرض القطاع (mm)',300],['heightMm','ارتفاع القطاع (mm)',500]],
- convert_units:[['category','الفئة','length'],['from','من وحدة','m'],['to','إلى وحدة','cm'],['value','القيمة',12]]
+ convert_units:[['category','الفئة','length'],['from','من وحدة','m'],['to','إلى وحدة','cm'],['value','القيمة',12]],
+ concrete_materials:[['areaM2','المساحة (م²)',20],['thicknessM','السماكة (م)',0.2],['wastePercent','الهدر (%)',5],['binderKgM3','المواد الأسمنتية kg/m³',350],['waterBinderRatio','نسبة الماء/الرابط',0.5],['gravelKgM3','الحصى kg/m³',1050]],
+ triangle_heron:[['aM','الضلع الأول (م)',3],['bM','الضلع الثاني (م)',4],['cM','الضلع الثالث (م)',5]],
+ rebar_schedule:[['diameterMm','قطر السيخ (mm)',16],['barLengthM','طول السيخ (م)',6],['quantity','عدد الأسياخ',20],['wastePercent','الهدر (%)',5]],
+ beam_deflection:[['spanM','طول البحر (م)',6],['loadType','نوع الحمل','udl'],['loadValue','w (kN/m) أو P (kN)',10],['elasticModulusGpa','معامل المرونة E (GPa)',25],['inertiaMm4','عزم القصور Ix (mm⁴)',250000000]],
+ yemeni_land_units:[['areaM2','المساحة (م²)',444.4],['unit','الوحدة','sanaa_labna']]
  };
  const unitSets={length:['m','cm','mm','km','ft','in'],force:['N','kN','lbf','kip'],pressure:['Pa','kPa','MPa','GPa','psi','ksi'],area:['m2','cm2','mm2','ft2']};
  const fields=$('fields');
@@ -16,7 +25,7 @@
   const kind=$('kind').value;fields.replaceChildren();
   for(const [key,title,example] of definitions[kind]){
    const label=document.createElement('label');label.htmlFor='f_'+key;label.textContent=title;
-   const selectOptions=kind==='convert_units'?(key==='category'?Object.keys(unitSets):key==='from'||key==='to'?unitSets[$('f_category')?.value||'length']:null):null;
+   const selectOptions=kind==='convert_units'?(key==='category'?Object.keys(unitSets):key==='from'||key==='to'?unitSets[$('f_category')?.value||'length']:null):(extraSelectOptions[key]||null);
    const input=selectOptions?document.createElement('select'):document.createElement('input');
    input.id='f_'+key;input.dataset.key=key;
    if(selectOptions){
@@ -40,7 +49,7 @@
    const article=document.createElement('div');article.className='result';
    const name=document.createElement('h3');name.textContent=item.title||'النتيجة الهندسية';article.append(name);
    const pre=document.createElement('pre');
-   pre.textContent=Object.entries(item.result||{}).map(([key,val])=>key+' = '+String(val)).join('\n');
+   pre.textContent=Object.entries(item.result||{}).map(([key,val])=>key+' = '+(typeof val==='object'?JSON.stringify(val,null,2):String(val))).join('\n');
    article.append(pre);
    if(item.formulae?.length){const p=document.createElement('p');p.className='small';p.textContent='المعادلات: '+item.formulae.join(' · ');article.append(p)}
    if(item.assumptions?.length){const ul=document.createElement('ul');ul.className='small';for(const txt of item.assumptions){const li=document.createElement('li');li.textContent=txt;ul.append(li)}article.append(ul)}
@@ -54,7 +63,7 @@
    const button=document.createElement('button');button.className='btn';button.type='button';button.textContent=action.type==='prefill'?'تأكيد تعبئة النموذج':'موافق، افتح القسم';
    button.onclick=()=>{
     if(!window.confirm('هل توافق على '+(action.type==='prefill'?'تعبئة القيم التالية دون حفظها؟':'فتح هذا القسم؟')+'\n'+(action.type==='prefill'?JSON.stringify(action.fields):String(action.page))))return;
-    if(action.target==='main'){
+    if(action.target==='url'){if(approvedRoutes.has(action.url))location.href=action.url;else alert('رابط غير مدعوم.')}else if(action.target==='main'){
      if(action.type==='prefill')sessionStorage.setItem('civilai_confirmed_ai_prefill',JSON.stringify({page:action.page,fields:action.fields,at:Date.now()}));
      location.href='/?open='+encodeURIComponent(action.page);
     }else if(action.target==='studio'){
@@ -92,12 +101,12 @@
   try{
    const file=$('attachment').files[0];
    const attachmentDataUrl=file?await toDataURL(file):undefined;
-   const result=await api({operation:'chat',question:q,history:history.slice(-6),...(attachmentDataUrl?{attachmentDataUrl}:{})});
+   const result=await api({operation:'chat',question:q,history:history.slice(-10),...(attachmentDataUrl?{attachmentDataUrl}:{})});
    pending.textContent=result.answer||'لم أستلم جوابًا.';
    const group=document.createElement('div');outputResult(group,null,result.calculations,result.actions);
    if(group.childNodes.length)outputs.prepend(group);
    history.push({role:'user',content:q},{role:'assistant',content:pending.textContent});
-   history=history.slice(-8);
+   history=history.slice(-12);
    $('question').value='';$('attachment').value='';
   }catch(err){pending.classList.add('error');pending.textContent='تعذر معالجة السؤال: '+err.message}
   finally{busy=false;send.disabled=false;chat.scrollTop=chat.scrollHeight}
