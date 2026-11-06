@@ -1,0 +1,21 @@
+'use strict';
+const assert=require('node:assert/strict');
+const {calculate, specs}=require('../api/civil-advanced');
+const knowledge=require('../api/civil-knowledge');
+function approx(actual,expected,tol=1e-6){assert.ok(Math.abs(actual-expected)<=tol,actual+' not near '+expected);}
+approx(calculate('triangle_heron',{aM:3,bM:4,cM:5}).result.areaM2,6);
+approx(calculate('polygon_area',{points:[{x:0,y:0},{x:10,y:0},{x:10,y:5},{x:0,y:5}]}).result.areaM2,50);
+assert.throws(()=>calculate('triangle_heron',{aM:1,bM:2,cM:4}));
+assert.throws(()=>calculate('polygon_area',{points:[{x:0,y:0},{x:10,y:10},{x:0,y:10},{x:10,y:0}]}));
+const concrete=calculate('concrete_materials',{areaM2:100,thicknessM:.2,wastePercent:5,flyAshReplacementPercent:20,steelFiberKgM3:30});
+approx(concrete.result.purchaseVolumeM3,21);
+approx(concrete.result.cementKg,5880);
+approx(concrete.result.flyAshKg,1470);
+approx(concrete.result.steelFiberKg,630);
+const bars=calculate('rebar_schedule',{diameterMm:16,barLengthM:6,quantity:20});
+approx(bars.result.totalLengthM,120);
+approx(calculate('yemeni_land_units',{areaM2:444.4,unit:'sanaa_labna'}).result.value,10);
+approx(calculate('beam_deflection',{spanM:6,loadType:'udl',loadValue:10,elasticModulusGpa:25,inertiaMm4:250000000}).result.maxDeflectionMm,27);
+assert.ok(specs.program_help);
+assert.ok(knowledge.pages.length>=15);
+console.log('Civil AI advanced deterministic tests passed');

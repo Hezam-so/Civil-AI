@@ -70,9 +70,13 @@ function chatReply(q){q=q.toLowerCase();if(/beam|girder|كمرة|كمره|عزم
   sessionStorage.removeItem('civilai_confirmed_ai_prefill');
   const a=JSON.parse(raw);
   if(!a||!['beam','concrete'].includes(a.page)||!Number.isFinite(a.at)||Date.now()-a.at>5*60*1000||a.at>Date.now())return;
-  const allowed=a.page==='beam'?{span:[.01,500],load:[0,1e6]}:{cLength:[.001,10000],cWidth:[.001,10000],cDepth:[.001,1000],cWaste:[0,100],cCost:[0,1e12]};
+  const allowed=a.page==='beam'?{span:[.01,500],load:[0,1e6]}:{cLength:[.001,10000],cWidth:[.001,10000],cDepth:[.001,1000],cWaste:[0,100],cCost:[0,1e12],cArea:[.001,1e10]};
   if(!a.fields||typeof a.fields!=='object')return;
   for(const [id,v] of Object.entries(a.fields)){
+   if(id==='cAreaMode'&&a.page==='concrete'){
+    if(v==='direct')$('cAreaMode').value='direct';
+    continue;
+   }
    if(id==='loadType'&&a.page==='beam'){
     if(['udl','point'].includes(v))$('loadType').value=v;
     continue;
@@ -82,6 +86,7 @@ function chatReply(q){q=q.toLowerCase();if(/beam|girder|كمرة|كمره|عزم
   }
   showPage(a.page);
   if(a.page==='beam')$('loadType').dispatchEvent(new Event('change'));
+  if(a.page==='concrete')$('cAreaMode').dispatchEvent(new Event('change'));
   // Changes are visible in the form. Saving remains a separate user action.
  }catch(e){console.warn('Assistant prefill was not applied')}
 })();

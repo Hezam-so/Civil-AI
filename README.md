@@ -42,3 +42,14 @@ Drag the `civil-ai` folder into Netlify's manual deploy interface, or connect it
 
 ## Next version
 Authentication, cloud database, project drawings/PDF upload, more structural cases, verified design-code modules, and an AI backend.
+
+
+## Free engineering AI copilot
+
+The assistant page at `/assistant.html` now defaults to the Vercel AI Gateway free-listed multimodal model `inclusionai/ling-3.0-flash-vl-free` (optionally `reflection/beam-free` through `CIVIL_AI_AI_MODEL`). The server permits only these two explicitly listed free model IDs; there is no automatic paid-model fallback. **Model availability, provider quotas, platform usage limits and free pricing can change without notice.** This does not guarantee unlimited, permanently free requests or free hosting. A valid Vercel AI Gateway authentication context (OIDC or a securely configured gateway API key) and user sign-in are required for chat.
+
+The assistant has an explicit, source-backed guide to the Civil AI tools and pages, proposes navigation/beam-concrete form fill **only after the user confirms** actions, and has deterministic server tools for triangular and polygonal areas, concrete material takeoff, rebar schedules, simple beam deflection, Yemeni area-unit conversion, and existing beam/footing/concrete/section/unit calculators. It can discuss screenshots with a vision-capable model. The direct calculators still work independently of whether an AI provider responds. Studio's inline assistant now calls the same API schema and accepts only PNG/JPEG/WEBP images.
+
+Material quantities use illustrative assumptions; they are not an approved concrete mix design. Beam deflection is linear elastic for simplified boundary/loading assumptions, and land measurements depend on surveyed coordinates. The assistant cannot autonomously read users' locally stored files, run Autodesk Robot/FEM, verify live building-code compliance, or approve structural designs. Validate critical results independently.
+
+To test deterministic tools locally with Node.js: `node tests/civil-advanced.test.js`.
