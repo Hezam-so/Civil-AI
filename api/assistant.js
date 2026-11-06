@@ -200,7 +200,7 @@ module.exports=async function(req,res){
   if(!user)return respond(res,401,{error:'سجل دخولك إلى حسابك أولًا.'});
   const input=typeof req.body==='string'?JSON.parse(req.body):req.body||{};
   if(input.operation==='calculate'){
-   try{return respond(res,200,{answer:'تم الحساب بمعادلات ثابتة، مع عرض الفرضيات والوحدات.',calculations:[calc(input.calculation?.kind,input.calculation?.values)],actions:[],mode:'calculator'})}
+   try{return respond(res,200,{answer:'تم الحساب بمعادلات ثابتة، مع عرض الفرضيات والوحدات.',calculations:[Object.hasOwn(advanced.specs,input.calculation?.kind)?advanced.calculate(input.calculation.kind,input.calculation?.values):calc(input.calculation?.kind,input.calculation?.values)],actions:[],mode:'calculator'})}
    catch(e){return respond(res,400,{error:e.message})}
   }
   if(input.operation!=='chat')return respond(res,400,{error:'نوع العملية غير مدعوم.'});
