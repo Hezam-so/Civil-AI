@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#07192e">
+<meta name="description" content="Civil AI | حساب وتحويل مساحة الأراضي بين اللبنة والقصبة والمعاد اليمني ووحدات النظام المتري والبريطاني">
+<title>حاسبة مساحة الأراضي اليمنية والعالمية | Civil AI</title>
+<style>
+:root{color-scheme:dark;--bg:#071426;--panel:#10263e;--panel2:#102d47;--line:#2d526d;--ink:#ecf7ff;--muted:#bed1e1;--aqua:#63dce6;--blue:#2298d3;--warn:#e8c183}
+*{box-sizing:border-box}
+body{visibility:hidden;margin:0;background:radial-gradient(circle at 80% -20%,#1e4a71,#071527 49%,#070f1d 100%);color:var(--ink);font-family:system-ui,Tahoma,Arial,sans-serif;line-height:1.7}
+a{color:#9fe3fa}
+button,select,input{font:inherit}
+button{cursor:pointer}
+.container{max-width:1200px;margin:0 auto;padding:20px 18px 55px}
+nav{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:0 0 20px;padding:13px 0 17px;border-bottom:1px solid var(--line)}
+.brand{font-size:24px;letter-spacing:1px;font-weight:900}.brand b{color:var(--aqua)}
+.navlinks{display:flex;flex-wrap:wrap;gap:8px}
+.navlinks a,.navlinks button{border:1px solid #375c79;background:#12314a;padding:9px 13px;border-radius:10px;text-decoration:none;color:#e9f7ff}
+.navlinks a:hover,.navlinks button:hover{background:#1c5071}
+.hero{margin:18px 0 22px}
+.eyebrow{text-transform:uppercase;letter-spacing:1.6px;color:#82d9f6;font-weight:700;font-size:11px}
+h1{font-size:clamp(25px,4vw,37px);line-height:1.35;margin:7px 0 9px}
+h2{font-size:20px;margin:0 0 12px}
+h3{font-size:16px;margin:0 0 10px}
+.hero p,.sub{color:var(--muted);margin:6px 0;max-width:1000px}
+.warnings{background:#342b24;border:1px solid #836b42;padding:12px 15px;color:#f4d6a7;border-radius:12px;font-size:13px;margin:14px 0}
+.layout{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);gap:16px;align-items:start}
+.card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#102a45,#0d2036);padding:21px;min-width:0}
+.field{display:flex;flex-direction:column;gap:5px;margin:0 0 14px}
+.field label{font-weight:650;font-size:13px;color:#c8e0f1}
+.field select,.field input{width:100%;min-width:0;border:1px solid #456582;background:#081a2d;color:#f5fbff;padding:12px 11px;border-radius:10px}
+.field select:focus,.field input:focus{outline:2px solid #50c7ef;outline-offset:2px}
+.field small{font-size:11px;color:#a4bdd0}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.unit-row{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:10px}
+.button{background:#1a5575;color:#effcff;border:1px solid #4087a7;padding:11px 15px;border-radius:10px;font-weight:720}
+.button:hover{background:#246b90}
+.button.primary{background:#127caf;border-color:#2db3ec}
+.button.muted{background:#152d42}
+#swap{align-self:center;margin-top:15px;font-size:20px;line-height:1;padding:11px 12px}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:17px}
+.result{background:#0b2d46;border:1px solid #287795;border-radius:14px;padding:15px;margin:6px 0 14px}
+.result .mainval{font-size:clamp(20px,3.4vw,31px);font-weight:800;color:#82f0f4;direction:ltr;text-align:start;overflow-wrap:anywhere}
+.result small{font-size:12px;color:#a9cfda}
+.chips{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.chip{background:#102f4d;padding:11px;border-radius:10px;border:1px solid #32556f;min-width:0}
+.chip b{display:block;font-size:17px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.chip span{color:#b4ccdd;font-size:12px}
+.formula{background:#0b2037;padding:11px;border-radius:10px;color:#c7d7e9;word-break:break-word;font-size:13px;direction:ltr;text-align:left}
+.custom{border:1px dashed #4c7a97;border-radius:12px;padding:13px;background:#10243a;margin-top:15px}
+.custom.hidden{display:none}
+.pill{display:inline-flex;align-items:center;border:1px solid #437b98;border-radius:99px;padding:2px 9px;font-size:11px;color:#a7ecff;margin-bottom:8px}
+#notice{min-height:28px;font-size:13px;color:#e7d09e;margin-top:10px;white-space:pre-wrap}
+.table-card{margin-top:18px}
+.table-scroll{overflow:auto;width:100%;border:1px solid #2d4a65;border-radius:10px}
+table{width:100%;border-collapse:collapse;min-width:650px}
+th,td{text-align:start;border-bottom:1px solid #223e5b;padding:10px 12px;font-size:13px}
+th{background:#14334c;color:#beeaff;white-space:nowrap}
+td em{display:block;font-style:normal;color:#a4bad0;font-size:11px}
+tbody tr:hover{background:#16344e}
+.numeric{font-variant-numeric:tabular-nums;direction:ltr;text-align:right;white-space:nowrap}
+.refs{padding-inline-start:22px;color:#b0cee2;font-size:13px}
+.refs li{margin-bottom:5px}
+.footer{border-top:1px solid var(--line);margin-top:24px;padding-top:16px;color:#a4bfd1;font-size:13px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.footer a{direction:ltr}
+@media(max-width:800px){.layout{grid-template-columns:1fr}.card{padding:16px}}
+@media(max-width:530px){.container{padding:14px 11px 36px}.two{grid-template-columns:1fr}.unit-row{grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr);gap:5px}.unit-row .field select{font-size:12px;padding:10px 5px}.unit-row .field label{font-size:11px}.chips{gap:6px}.chip{padding:9px}.chip b{font-size:15px}.navlinks{width:100%}.navlinks a{flex:1;text-align:center}.footer{font-size:12px}}
+@media print{body{background:white!important;color:#111!important;visibility:visible!important}.card,.result,.chip,.custom{background:#fff!important;color:#111!important;box-shadow:none}nav,.actions,#swap,#langButton,.footer{display:none!important}table{min-width:0}th,td{color:#111!important}#civil-owner-banner{position:static!important}}
+</style>
+<script src="account-gate.js" defer></script>
+<script src="land-area.js" defer></script>
+</head>
+<body>
+<div class="container">
+<nav aria-label="التنقل داخل المنصة">
+<div class="brand">CIVIL <b>AI</b></div>
+<div class="navlinks">
+<a href="/" data-ar="الرئيسية" data-en="Home">الرئيسية</a>
+<a href="studio.html" data-ar="المختبر الهندسي" data-en="Engineering Studio">المختبر الهندسي</a>
+<a href="upload.html" data-ar="إرفاق المخططات" data-en="Upload Drawings">إرفاق المخططات</a>
+<button type="button" id="langButton" aria-label="Toggle language">English</button>
+</div>
+</nav>
+<main>
+<header class="hero">
+<div class="eyebrow">CIVIL AI · LAND AREA CONVERTER</div>
+<h1 data-ar="حاسبة وحدات مساحة الأراضي — اليمن والعالم" data-en="Land Area Converter — Yemen & Global">حاسبة وحدات مساحة الأراضي — اليمن والعالم</h1>
+<p data-ar="حوّل فورًا بين اللبن والقصب والمعادات اليمنية بحسب المنطقة، والنظام المتري (SI)، والوحدات البريطانية/الإنجليزية. جميع التحويلات تتم عبر المتر المربع." data-en="Instantly convert regional Yemeni labnah, qasabah and ma'ad measures, SI metric units, and British/imperial units using square metres as the common basis.">حوّل فورًا بين اللبن والقصب والمعادات اليمنية بحسب المنطقة، والنظام المتري (SI)، والوحدات البريطانية/الإنجليزية. جميع التحويلات تتم عبر المتر المربع.</p>
+<div class="warnings" data-ar="تنبيه مساحي: الوحدات اليمنية عرفية وقد تختلف قيمتها بين المديريات والقرى. القيم أدناه مقادير متداولة وليست جدولًا حكوميًا موحدًا. أكّد قيمة الوحدة من الوثيقة والمسّاح قبل البيع أو الشراء." data-en="Survey notice: Yemeni traditional measures are customary and may vary by district or village. These are published commonly used values, not an official nationwide standard. Confirm the unit with the title deed and surveyor before any transaction.">تنبيه مساحي: الوحدات اليمنية عرفية وقد تختلف قيمتها بين المديريات والقرى. القيم أدناه مقادير متداولة وليست جدولًا حكوميًا موحدًا. أكّد قيمة الوحدة من الوثيقة والمسّاح قبل البيع أو الشراء.</div>
+</header>
+<div class="layout">
+<section class="card" aria-labelledby="calculatorHeading">
+<h2 id="calculatorHeading" data-ar="حساب وتحويل المساحة" data-en="Area Calculation & Conversion">حساب وتحويل المساحة</h2>
+<div class="two">
+<div class="field"><label for="areaAmount" data-ar="المساحة المراد تحويلها" data-en="Area amount">المساحة المراد تحويلها</label><input id="areaAmount" type="number" value="10" min="0" step="any" inputmode="decimal" autocomplete="off"></div>
+<div class="field"><label for="regionFilter" data-ar="تصفية وحدات المصدر حسب المنطقة" data-en="Filter source units by region">تصفية وحدات المصدر حسب المنطقة</label><select id="regionFilter"></select><small data-ar="تظهر الوحدات الدولية دائمًا، ويمكنك اختيار جميع المناطق." data-en="International units remain available. Choose all regions to see every Yemeni unit.">تظهر الوحدات الدولية دائمًا، ويمكنك اختيار جميع المناطق.</small></div>
+</div>
+<div class="unit-row">
+<div class="field"><label for="fromUnit" data-ar="من وحدة" data-en="From unit">من وحدة</label><select id="fromUnit"></select></div>
+<button type="button" id="swap" class="button muted" title="تبديل الوحدتين" aria-label="تبديل وحدتي التحويل">⇄</button>
+<div class="field"><label for="toUnit" data-ar="إلى وحدة" data-en="To unit">إلى وحدة</label><select id="toUnit"></select></div>
+</div>
+<div id="factorEditor" class="custom hidden" aria-live="polite">
+<span class="pill" data-ar="قيمة محلية قابلة للتعديل" data-en="Editable local factor">قيمة محلية قابلة للتعديل</span>
+<div class="field"><label for="factorInput" data-ar="متر مربع لكل وحدة محددة" data-en="Square metres per selected unit">متر مربع لكل وحدة محددة</label><input id="factorInput" type="number" min="0.000000001" step="any" inputmode="decimal"></div>
+<div id="customMeta" class="two">
+<div class="field"><label for="customName" data-ar="اسم وحدتك المحلية" data-en="Custom unit name">اسم وحدتك المحلية</label><input id="customName" value="وحدة محلية" maxlength="90"></div>
+<div class="field"><label for="customRegion" data-ar="المنطقة أو المديرية" data-en="Local region or district">المنطقة أو المديرية</label><input id="customRegion" placeholder="مثلاً: حجة، شبوة…" maxlength="80"></div>
+</div>
+<div class="actions"><button class="button muted" id="saveFactor" type="button" data-ar="اعتماد القيمة المحلية" data-en="Apply local factor">اعتماد القيمة المحلية</button><button class="button muted" id="resetFactor" type="button" data-ar="استعادة القيمة المرجعية" data-en="Restore default factor">استعادة القيمة المرجعية</button></div>
+<small data-ar="التعديلات تبقى على هذا الجهاز فقط. الوحدات العالمية لها معاملات ثابتة لا يمكن تغييرها." data-en="Overrides are stored on this device only. Global standardized conversion factors cannot be edited.">التعديلات تبقى على هذا الجهاز فقط. الوحدات العالمية لها معاملات ثابتة لا يمكن تغييرها.</small>
+</div>
+<div class="actions">
+<button id="copyResult" class="button" type="button" data-ar="نسخ نتيجة التحويل" data-en="Copy conversion">نسخ نتيجة التحويل</button>
+<button id="saveResult" class="button primary" type="button" data-ar="حفظ في مشاريعي" data-en="Save to My Projects">حفظ في مشاريعي</button>
+<button class="button muted" type="button" id="printResult" data-ar="طباعة" data-en="Print">طباعة</button>
+</div>
+<div id="notice" role="status" aria-live="polite"></div>
+</section>
+<section class="card" aria-labelledby="resultHeading">
+<h2 id="resultHeading" data-ar="نتيجة التحويل" data-en="Conversion Result">نتيجة التحويل</h2>
+<div class="result" aria-live="polite"><small id="conversionLabel">المساحة المكافئة</small><div class="mainval" id="mainResult">—</div><small id="conversionDetail"></small></div>
+<div class="chips">
+<div class="chip"><span data-ar="متر مربع (m²)" data-en="Square metres (m²)">متر مربع (m²)</span><b id="inM2">—</b></div>
+<div class="chip"><span data-ar="هكتار (ha)" data-en="Hectares (ha)">هكتار (ha)</span><b id="inHectare">—</b></div>
+<div class="chip"><span data-ar="قدم مربع (ft²)" data-en="Square feet (ft²)">قدم مربع (ft²)</span><b id="inFeet">—</b></div>
+<div class="chip"><span data-ar="فدان إنجليزي (acre)" data-en="Acres (ac)">فدان إنجليزي (acre)</span><b id="inAcres">—</b></div>
+</div>
+<h3 style="margin-top:15px" data-ar="طريقة الحساب" data-en="Calculation">طريقة الحساب</h3>
+<div id="formula" class="formula">—</div>
+<p class="sub" id="activeFactorNote"></p>
+</section>
+</div>
+<section class="card table-card">
+<h2 data-ar="جدول المقارنة — الوحدات المتاحة" data-en="Comparison Table — Available Units">جدول المقارنة — الوحدات المتاحة</h2>
+<p class="sub" data-ar="يعرض الجدول المساحة نفسها بجميع الوحدات، مع منطقة استخدام المقياس اليمني ومقداره بالمتر المربع." data-en="Compare the same land area across all units, including customary Yemeni regions and each unit's square-metre factor.">يعرض الجدول المساحة نفسها بجميع الوحدات، مع منطقة استخدام المقياس اليمني ومقداره بالمتر المربع.</p>
+<div class="field"><label for="tableSearch" data-ar="ابحث عن وحدة أو منطقة" data-en="Find a unit or region">ابحث عن وحدة أو منطقة</label><input id="tableSearch" type="search" placeholder="مثال: لبنة، تعز، Acre, hectare"></div>
+<div class="table-scroll">
+<table><thead><tr><th data-ar="الوحدة" data-en="Unit">الوحدة</th><th data-ar="المنطقة / النظام" data-en="Region / system">المنطقة / النظام</th><th data-ar="م² لكل وحدة" data-en="m² per unit">م² لكل وحدة</th><th data-ar="المساحة المكافئة" data-en="Converted area">المساحة المكافئة</th></tr></thead><tbody id="comparisonRows"></tbody></table>
+</div>
+</section>
+<section class="card table-card">
+<h2 data-ar="المراجع وحدود الاستخدام" data-en="Sources and Interpretation">المراجع وحدود الاستخدام</h2>
+<p class="sub" data-ar="الأنظمة المترية والبريطانية تستخدم معاملات معرفة بدقة. أما المقادير المحلية اليمنية فمرجعية عرفية ويجب مطابقتها مع سند الأرض والعرف المحلي والرفع المساحي." data-en="Metric and imperial conversions use defined factors. Yemeni customary values are indicative and must be checked against the land deed, local practice, and a professional survey.">الأنظمة المترية والبريطانية تستخدم معاملات معرفة بدقة. أما المقادير المحلية اليمنية فمرجعية عرفية ويجب مطابقتها مع سند الأرض والعرف المحلي والرفع المساحي.</p>
+<ul class="refs">
+<li><a href="https://maskani.homes/blog/yemen-land-units-explained" target="_blank" rel="noopener noreferrer">وحدات المساحة اليمنية — مسكني</a></li>
+<li><a href="https://ye.alaqarya.com/index.php/details_magazine/395" target="_blank" rel="noopener noreferrer">قصب تعز وإب — العقارية كوم</a></li>
+<li><a href="https://answers.mawdoo3.com/%D9%83%D9%8A%D9%81-%D9%8A%D8%AA%D9%85-%D9%82%D9%8A%D8%A7%D8%B3-%D9%85%D8%B3%D8%A7%D8%AD%D8%A7%D8%AA-%D8%A7%D9%84%D8%A3%D8%B1%D8%A7%D8%B6%D9%8A-%D9%81%D9%8A-%D8%A7%D9%84%D9%8A%D9%85%D9%86" target="_blank" rel="noopener noreferrer">مقاييس الرداع والجوف — موضوع سؤال وجواب</a></li>
+<li><a href="https://www.nist.gov/pml/us-surveyfoot/revised-unit-conversion-factors" target="_blank" rel="noopener noreferrer">وحدات القدم والفدان والميل المربع — NIST</a></li>
+</ul>
+</section>
+</main>
+<footer class="footer"><span>Eng. Hezam Suleiman · <small>المهندس حزام سليمان</small></span><a href="tel:+967775264654">+967775264654</a></footer>
+</div>
+</body>
+</html>
