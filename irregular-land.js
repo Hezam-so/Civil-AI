@@ -6,6 +6,40 @@ if(!G){$('status').textContent='لم يتم تحميل محرك الحساب.';r
 const NS='http://www.w3.org/2000/svg';
 let mode='coordinates',points=[{x:'0',y:'0'},{x:'35',y:'0'},{x:'44',y:'22'},{x:'20',y:'35'},{x:'0',y:'20'}],triangles=[{a:'15',b:'20',c:'25'}],latest=null,diagramTransform=null;
 let drawTool='move',selected=-1,dragging=null,undoStack=[],showLengths=true,showAngles=true,snapGrid=false;
+let referencePoint=0,targetPoint=1,pickingDistance=false,pickStep=0;
+const distanceInfo=()=>{
+ const a=points[referencePoint],b=points[targetPoint];
+ if(!a||!b||referencePoint===targetPoint)return null;
+ const ax=parse(a.x),ay=parse(a.y),bx=parse(b.x),by=parse(b.y);
+ if(![ax,ay,bx,by].every(Number.isFinite))return null;
+ const dx=bx-ax,dy=by-ay;
+ return {metres:Math.hypot(dx,dy),bearing:(Math.atan2(dy,dx)*180/Math.PI+360)%360};
+};
+const refreshDistancePair=()=>{
+ const from=$('distanceFrom'),to=$('distanceTo');
+ for(const select of [from,to]){
+  select.replaceChildren();
+  points.forEach((p,i)=>{
+   const option=document.createElement('option');option.value=String(i);option.textContent='P'+(i+1);
+   select.append(option);
+  });
+ }
+ if(referencePoint>=points.length)referencePoint=0;
+ if(targetPoint>=points.length||targetPoint===referencePoint)targetPoint=points.length>1?(referencePoint+1)%points.length:-1;
+ from.value=String(referencePoint);to.value=String(targetPoint);updateDistanceReadout();
+};
+const updateDistanceReadout=()=>{
+ const details=distanceInfo();
+ const active=mode==='coordinates'&&!!details;
+ for(const id of ['distanceMeters','distanceBearing','distanceApply'])$(id).disabled=!active;
+ if(!details){
+  $('distanceReadout').textContent='اختر نقطتين مختلفتين لهما إحداثيات صحيحة.';
+  $('distanceMeters').value='';$('distanceBearing').value='';return;
+ }
+ $('distanceReadout').textContent='المسافة بين P'+(referencePoint+1)+' وP'+(targetPoint+1)+': '+fmt(details.metres,3)+' متر · الاتجاه: '+fmt(details.bearing,2)+'°';
+ if(document.activeElement!==$('distanceMeters'))$('distanceMeters').value=Number(details.metres.toFixed(4));
+ if(document.activeElement!==$('distanceBearing'))$('distanceBearing').value=Number(details.bearing.toFixed(3));
+};
 const recordUndo=()=>{undoStack.push(points.map(p=>({...p})));if(undoStack.length>30)undoStack.shift()};
 const measureAngle=(idx)=>{
  if(points.length<3||idx<0||idx>=points.length)return NaN;
@@ -58,6 +92,7 @@ function renderInputs(){
  const p=$('pointRows'),t=$('triangleRows');p.replaceChildren();t.replaceChildren();
  points.forEach((_,i)=>addTableRow(p,i,['x','y'],'point'));
  triangles.forEach((_,i)=>addTableRow(t,i,['a','b','c'],'triangle'));
+ refreshDistancePair();
 }
 function updateNumbers(area,perimeter,n){
  $('areaMain').textContent=area===null?'—':fmt(area,6)+' م²';
@@ -110,12 +145,18 @@ function drawPolygon(result){
      svg.append(el('text',{x:tx,y:ty-7,'text-anchor':'middle','font-size':10,fill:'#ffc870','paint-order':'stroke',stroke:'#081929','stroke-width':3},fmt(distance,2)+' m'));
    });
  }
+ if(referencePoint!==targetPoint&&screen[referencePoint]&&screen[targetPoint]){
+   const a=screen[referencePoint],b=screen[targetPoint];
+   svg.append(el('line',{x1:a.x,y1:a.y,x2:b.x,y2:b.y,class:'distance-line'}));
+   const details=distanceInfo();
+   if(details)svg.append(el('text',{x:(a.x+b.x)/2,y:(a.y+b.y)/2-13,'text-anchor':'middle',class:'distance-label'},fmt(details.metres,2)+' m'));
+ }
  screen.forEach((p,i)=>{
    if(result?.valid&&showAngles){
      const angle=measureAngle(i);
      if(Number.isFinite(angle))svg.append(el('text',{x:p.x+10,y:p.y+17,'font-size':10,fill:'#78e8c7','paint-order':'stroke',stroke:'#081929','stroke-width':3},fmt(angle,1)+'°'));
    }
-   svg.append(el('circle',{cx:p.x,cy:p.y,r:selected===i?8:5.5,fill:selected===i?'#ff9654':'#ffdd83',stroke:'#162838','stroke-width':1.7}));
+   svg.append(el('circle',{cx:p.x,cy:p.y,r:selected===i?8:5.5,fill:i===referencePoint?'#8bedff':i===targetPoint?'#faacd9':selected===i?'#ff9654':'#ffdd83',stroke:'#162838','stroke-width':1.7}));
    svg.append(el('circle',{cx:p.x,cy:p.y,r:17,class:'vertex-hit','data-index':i,'aria-label':'تحريك الزاوية P'+(i+1)}));
    svg.append(el('text',{x:p.x+9,y:p.y-9,'font-size':12,fill:'#f7f5e8','paint-order':'stroke',stroke:'#061827','stroke-width':3},'P'+(i+1)));
  });
@@ -145,6 +186,7 @@ function update(){
   else result=G.polygonArea(parsed);
   drawPolygon(result);
   if(!dragging)syncEditor();
+  updateDistanceReadout();
   if(!result.valid){
    const errors={vertices:'أدخل ثلاث زوايا على الأقل.',coordinates:'أكمل الإحداثيات الرقمية الصحيحة لكل زاوية.',limit:'الحد الأقصى 100 زاوية.',duplicate:'هناك زاويتان متجاورتان متطابقتان أو ضلع طوله صفر.',crossing:'حدود الأرض تتقاطع أو تلامس نفسها. راجع ترتيب الزوايا.',zero:'المضلع ليس له مساحة أفقية قابلة للحساب.'};
    showStatus(errors[result.error]||'تعذر حساب المساحة. راجع الإحداثيات.',true);
@@ -175,7 +217,7 @@ function setMode(next){
  $('coordinateMode').hidden=next!=='coordinates';$('triangleMode').hidden=next!=='triangles';
  $('modeCoordinates').setAttribute('aria-pressed',String(next==='coordinates'));
  $('modeTriangles').setAttribute('aria-pressed',String(next==='triangles'));
- $('drawingTools').hidden=next!=='coordinates';$('selectedEditor').hidden=next!=='coordinates';
+ $('drawingTools').hidden=next!=='coordinates';$('selectedEditor').hidden=next!=='coordinates';$('distanceEditor').hidden=next!=='coordinates';
  $('sketchHelp').textContent=next==='coordinates'?'حدود الأرض بالذهبي والمثلثات التوضيحية بالأزرق. يمكنك إضافة زاوية بالنقر على الرسم.':'المثلثات المرسومة توضيحية وليست بمقياس أضلاع حقيقي؛ أدخل الأطوال المقاسة في الجدول.';
  update();
 }
@@ -236,6 +278,41 @@ $('selectedAngle').onchange=e=>{
  if(!result.valid)return showStatus('هذه الزاوية تنتج حدودًا غير صالحة؛ لم تُطبّق. عدّل الإحداثيات أو اختر زاوية أخرى.',true);
  recordUndo();Object.assign(next,candidate);renderInputs();update();
 };
+
+$('distanceFrom').onchange=e=>{
+ referencePoint=Number(e.target.value);
+ if(referencePoint===targetPoint&&points.length>1)targetPoint=(referencePoint+1)%points.length;
+ refreshDistancePair();update();
+};
+$('distanceTo').onchange=e=>{
+ targetPoint=Number(e.target.value);
+ if(targetPoint===referencePoint&&points.length>1)referencePoint=(targetPoint+1)%points.length;
+ refreshDistancePair();update();
+};
+$('distancePick').onclick=()=>{
+ pickingDistance=!pickingDistance;pickStep=0;
+ $('distancePick').setAttribute('aria-pressed',String(pickingDistance));
+ $('distancePick').textContent=pickingDistance?'اضغط النقطة الأولى':'اختيار نقطتين من الرسم';
+ if(pickingDistance)changeTool('move');
+ showStatus(pickingDistance?'اضغط على النقطة المرجعية أولًا، ثم النقطة الثانية.':'أُلغي وضع اختيار النقاط.');
+};
+$('distanceApply').onclick=()=>{
+ if(referencePoint===targetPoint||!points[referencePoint]||!points[targetPoint])return showStatus('اختر نقطتين مختلفتين أولًا.',true);
+ const distance=parse($('distanceMeters').value),angle=parse($('distanceBearing').value);
+ if(!Number.isFinite(distance)||distance<=0||distance>1e10||!Number.isFinite(angle)||Math.abs(angle)>1e9)return showStatus('المسافة يجب أن تكون رقمًا موجبًا بالمتر والاتجاه رقمًا بالدرجات.',true);
+ const origin=points[referencePoint],ax=parse(origin.x),ay=parse(origin.y);
+ if(![ax,ay].every(Number.isFinite))return showStatus('الإحداثيات المرجعية غير صحيحة.',true);
+ const rad=angle*Math.PI/180;
+ const next={x:Number((ax+distance*Math.cos(rad)).toFixed(6)),y:Number((ay+distance*Math.sin(rad)).toFixed(6))};
+ if(!Number.isFinite(next.x)||!Number.isFinite(next.y))return showStatus('الإحداثيات الناتجة خارج المدى.',true);
+ const candidate=points.map(p=>({x:parse(p.x),y:parse(p.y)}));
+ candidate[targetPoint]=next;
+ const result=G.polygonArea(candidate);
+ if(!result.valid)return showStatus('المسافة والاتجاه الجديدان يجعلان حدود الأرض غير صالحة أو متقاطعة، لم يُطبّق التغيير.',true);
+ recordUndo();points[targetPoint]={x:String(next.x),y:String(next.y)};
+ selected=targetPoint;renderInputs();update();
+ showStatus('تم تحريك P'+(targetPoint+1)+' من P'+(referencePoint+1)+' بمسافة '+fmt(distance,3)+' متر واتجاه '+fmt((angle%360+360)%360,2)+'°.');
+};
 const plot=$('landDiagram');
 plot.addEventListener('pointerdown',e=>{
  if(mode!=='coordinates'||e.button>0||!diagramTransform)return;
@@ -244,6 +321,17 @@ plot.addEventListener('pointerdown',e=>{
  if(target){
    selected=Number(target.dataset.index);
    if(selected<0||selected>=points.length)return;
+   if(pickingDistance){
+    if(pickStep===0){referencePoint=selected;pickStep=1;showStatus('اختر النقطة الثانية الآن؛ ستتحرك بالنسبة للأولى.')}
+    else{
+     if(selected===referencePoint)return showStatus('اختر نقطة ثانية مختلفة.',true);
+     targetPoint=selected;pickingDistance=false;pickStep=0;
+     $('distancePick').setAttribute('aria-pressed','false');
+     $('distancePick').textContent='اختيار نقطتين من الرسم';
+     showStatus('تم اختيار P'+(referencePoint+1)+' وP'+(targetPoint+1)+'. يمكنك تعديل المسافة والاتجاه.');
+    }
+    refreshDistancePair();update();e.preventDefault();return;
+   }
    if(drawTool!=='move'){changeTool('move');}
    recordUndo();
    dragging={pointerId:e.pointerId,index:selected,transform:{...diagramTransform}};
