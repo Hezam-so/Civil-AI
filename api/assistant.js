@@ -86,10 +86,11 @@ const basicSpecs={
  rect_section:{description:'Area and second moment Ix / elastic section modulus Zx of a solid rectangular cross-section, mm dimensions.',properties:{widthMm:{type:'number'},heightMm:{type:'number'}},required:['widthMm','heightMm']},
  convert_units:{description:'Convert engineering length, force, pressure, area units, only specified categories.',properties:{category:{type:'string',enum:['length','force','pressure','area']},from:{type:'string'},to:{type:'string'},value:{type:'number'}},required:['category','from','to','value']},
  open_tool:{description:'Propose navigation to a section of Civil AI. Does not execute; user must approve.',properties:{target:{type:'string',enum:['main','studio']},page:{type:'string'},reason:{type:'string'}},required:['target','page']},
- prepare_main_form:{description:'Propose (not execute) filling homepage beam or concrete calculator fields after explicit user request. User must approve in UI.',properties:{page:{type:'string',enum:['beam','concrete']},spanM:{type:'number'},loadType:{type:'string',enum:['udl','point']},loadValue:{type:'number'},lengthM:{type:'number'},widthM:{type:'number'},heightM:{type:'number'},wastePercent:{type:'number'},unitCost:{type:'number'}},required:['page']}
+ prepare_main_form:{description:'Propose (not execute) filling homepage beam or concrete calculator fields after explicit user request. User must approve in UI.',properties:{page:{type:'string',enum:['beam','concrete']},spanM:{type:'number'},loadType:{type:'string',enum:['udl','point']},loadValue:{type:'number'},lengthM:{type:'number'},widthM:{type:'number'},heightM:{type:'number'},wastePercent:{type:'number'},unitCost:{type:'number'},areaM2:{type:'number'}},required:['page']}
 };
 const specs={...basicSpecs,...advanced.specs,
- open_page:{description:'Suggest opening one of the verified Civil AI pages with user approval.',properties:{pageId:{type:'string',enum:knowledge.pages.map(p=>p.id)}},required:['pageId']}
+ open_page:{description:'Suggest opening one of the verified Civil AI pages with user approval.',properties:{pageId:{type:'string',enum:knowledge.pages.map(p=>p.id)}},required:['pageId']},
+ prepare_studio_form:{description:'Suggest prefill of supported Studio beam, footing and section fields after explicit user confirmation; never executes or saves.',properties:{page:{type:'string',enum:['beam','footing','section']},spanM:{type:'number'},elasticModulusGpa:{type:'number'},inertiaMm4:{type:'number'},axialLoadKn:{type:'number'},lengthM:{type:'number'},widthM:{type:'number'},heightM:{type:'number'},allowableKpa:{type:'number'},sectionWidthMm:{type:'number'},sectionHeightMm:{type:'number'}},required:['page']}
 };
 const tools=Object.entries(specs).map(([name,v])=>({type:'function',function:{name,description:v.description,parameters:{type:'object',properties:v.properties,required:v.required,additionalProperties:false}}}));
 const pageAllowed={
@@ -101,6 +102,17 @@ function act(name,args){
   const page=knowledge.pages.find(p=>p.id===args.pageId);
   if(!page||!knowledge.allowedRoutes.has(page.route))throw Error('Unknown site page');
   return {type:'navigate',target:'url',page:page.id,url:page.route,label:page.name,reason:page.summary};
+ }
+ if(name==='prepare_studio_form'){
+  const page=String(args.page),fields={},mapping={
+   beam:[['beamL','spanM',.1,200],['beamE','elasticModulusGpa',.001,1000],['beamI','inertiaMm4',1,1e18]],
+   footing:[['footP','axialLoadKn',0,1e9],['footL','lengthM',.001,10000],['footB','widthM',.001,10000],['footH','heightM',0,10000],['footQ','allowableKpa',.001,1e9]],
+   section:[['secB','sectionWidthMm',.001,100000],['secH','sectionHeightMm',.001,100000]]
+  };
+  if(!Object.hasOwn(mapping,page))throw Error('Studio page unsupported.');
+  for(const [input,key,min,max] of mapping[page])if(args[key]!==undefined)fields[input]=num(args[key],key,{min,max});
+  if(!Object.keys(fields).length)throw Error('No Studio form values provided.');
+  return {type:'prefill',target:'studio',page,fields,label:'تعبئة '+page};
  }
  if(name==='open_tool'){
   const target=String(args.target),page=String(args.page);
@@ -114,6 +126,7 @@ function act(name,args){
    if(args.loadType!==undefined){if(!['udl','point'].includes(args.loadType))throw Error('نوع الحمل غير مدعوم');fields.loadType=args.loadType}
    if(args.loadValue!==undefined)fields.load=num(args.loadValue,'قيمة الحمل',{max:1e6});
   }else if(page==='concrete'){
+   if(args.areaM2!==undefined){fields.cAreaMode='direct';fields.cArea=num(args.areaM2,'مساحة الخرسانة (م²)',{min:.001,max:1e10})}
    for(const [input,key,min,max] of [['cLength','lengthM',.001,10000],['cWidth','widthM',.001,10000],['cDepth','heightM',.001,1000],['cWaste','wastePercent',0,100],['cCost','unitCost',0,1e12]])if(args[key]!==undefined)fields[input]=num(args[key],key,{min,max});
   }else throw Error('نوع النموذج غير مدعوم.');
   if(Object.keys(fields).length===0)throw Error('لم تُحدد قيم لتعبئتها.');
@@ -217,7 +230,7 @@ module.exports=async function(req,res){
   const system=[
    'أنت مساعد Civil AI للهندسة المدنية. أجب بلغة المستخدم العربية أو الإنجليزية بدقة ووضوح. المعرفة بالبرنامج من الدليل المرفق لا من التخمين.',
    'عند حل مسألة رقمية مدعومة استدع أداة الحساب أولاً ثم اشرح النتائج والمعادلات والوحدات والافتراضات والقيود. لا تخترع مدخلات ناقصة أو حدود أكواد؛ اسأل عند الحاجة.',
-   'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح القسم، وprepare_main_form لتعبئة قيم الحاسبات الرئيسية. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير مشاريعه من تلقاء نفسك.',
+   'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح القسم، وprepare_main_form لتعبئة قيم الحاسبات الرئيسية وprepare_studio_form لتعبئة الحاسبات المتقدمة. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير مشاريعه من تلقاء نفسك.',
    'لا تدعِ القيام بتحليل FEM أو تنفيذ Robot أو قراءة ملف DWG إن لم تنفذ أدوات موثوقة. الصورة يمكن وصفها دون اختلاق الأبعاد. تصميم الخلطة الخرسانية وكود البناء يحتاجان مراجعة مهندس. لا تختلق مصادر.',
    'إن كانت المسألة خارج نطاق الحاسبات الرقمية فقدم منهج الحل وتحقق من الأبعاد ومعلومات التصميم، ولا تدع الفحص المبدئي فحصاً معتمداً.',
    'الذكاء يستخدم نموذجاً مجانياً؛ لا تستخدم نموذجاً مدفوعاً احتياطياً.',
@@ -237,7 +250,7 @@ module.exports=async function(req,res){
      let result;
      try{
       const args=JSON.parse(call.function?.arguments||'{}'),name=String(call.function?.name||'');
-      if(['open_tool','prepare_main_form','open_page'].includes(name)){
+      if(['open_tool','prepare_main_form','open_page','prepare_studio_form'].includes(name)){
        result=act(name,args);if(actions.length<6)actions.push(result);
       }else if(Object.hasOwn(advanced.specs,name)){
        result=advanced.calculate(name,args);if(calculations.length<6)calculations.push(result);
