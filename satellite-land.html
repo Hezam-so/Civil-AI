@@ -35,6 +35,15 @@ input:focus,select:focus{outline:2px solid #49d5df}
 .road-controls{display:flex;align-items:flex-end;gap:9px;flex-wrap:wrap;padding:10px 0 14px}
 .road-controls>.field{min-width:145px;flex:1;margin-bottom:0}
 .road-controls>button{padding:9px;background:#713b47;color:white;border:1px solid #ae7381;border-radius:9px}
+.nearby-roads{margin-top:12px;padding:12px;border:1px solid #3d7188;border-radius:12px;background:#102d42}
+.nearby-roads h3{margin:0 0 8px;font-size:15px}
+.nearby-roads>button{background:#1c5975;color:#f1fcff;border:1px solid #4b9cbb;border-radius:9px;padding:9px 12px;margin:9px 0}
+.checkrow{display:flex;align-items:flex-start;gap:9px;color:#d2eff5;font-size:13px;cursor:pointer}
+.checkrow input{width:auto;min-width:17px;margin-top:5px;accent-color:#61dddf}
+.zoombar{display:flex;align-items:center;flex-wrap:wrap;gap:10px;margin:10px 0;padding:9px 11px;border-radius:10px;background:#102f44}
+.zoombar label{white-space:nowrap;font-size:13px;color:#b5eff4}
+.zoombar input{min-width:140px;flex:1;accent-color:#4cc6d3}
+.zoombar small{color:#b8cede;font-size:11px;flex-basis:100%}
 .map-bottom-toolbar{margin-top:12px;margin-bottom:5px}
 .export-panel{border:1px solid #3e7a8c;background:#10364a;border-radius:12px;padding:13px;margin-top:14px}
 .export-panel .actions{margin-top:9px}
@@ -75,7 +84,7 @@ hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 <div class="toolbar">
 <button type="button" id="satelliteLayer" aria-pressed="true">🛰️ أقمار صناعية</button>
 <button type="button" id="streetLayer" aria-pressed="false">🗺️ خريطة الطرق</button>
-<button type="button" id="locateMe">◎ موقعي الحالي</button>
+<button type="button" id="locateMe">◎ موقعي الحالي</button><button type="button" id="zoomCloser" title="تقريب إضافي للصورة">⊕ تقريب أكثر</button>
 </div>
 <div class="row" style="margin-bottom:10px">
 <div class="field" style="flex:1;min-width:145px;margin-bottom:0"><label for="jumpLat">خط العرض Latitude</label><input id="jumpLat" inputmode="decimal" type="number" step="any" placeholder="مثال: 15.3694"></div>
@@ -83,6 +92,7 @@ hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 <button type="button" id="jumpTo" style="margin-top:17px">الذهاب إلى الإحداثيات</button>
 </div>
 <div id="satelliteMap" role="application" aria-label="خريطة تفاعلية لرسم حدود الأرض"></div>
+<div class="zoombar"><label for="zoomSlider">التقريب الدقيق: <b id="zoomLevel">7</b></label><input id="zoomSlider" type="range" min="7" max="23" step="0.5" value="7"><small>يمكن التقريب حتى المستوى 23، وقد تُكبّر الصورة دون تفاصيل جديدة إذا كانت دقة الصور الأصلية أقل.</small></div>
 <div class="toolbar map-bottom-toolbar" aria-label="أدوات تحرير الرسم تحت الخريطة">
 <button type="button" id="addMode" class="primary" aria-pressed="true">＋ إضافة الزوايا</button>
 <button type="button" id="moveMode" aria-pressed="false">✥ تحريك الخريطة</button>
@@ -96,12 +106,19 @@ hr{border:0;border-top:1px solid var(--line);margin:15px 0}
 <div class="field"><label for="roadWidth">عرض الشارع بالمتر (للتوثيق)</label><input id="roadWidth" type="number" step="any" min="0" max="100" value="8"></div>
 <button id="clearRoads" type="button">حذف جميع الشوارع</button>
 </div>
+<div class="nearby-roads">
+<h3>الشوارع المحيطة بالأرض (اختياري)</h3>
+<label class="checkrow" for="includeNearbyRoads"><input id="includeNearbyRoads" type="checkbox"> تضمين الشوارع المجاورة المستخرجة من OpenStreetMap في الرسم وملفات AutoCAD / PDF</label>
+<button type="button" id="loadNearbyRoads">جلب الشوارع المجاورة من بيانات الخرائط</button>
+<p id="nearbyRoadStatus" class="helper" role="status">اختر هذه الميزة بعد تحديد الأرض. يتم جلب محاور الطرق الموثّقة في OpenStreetMap، وقد تكون البيانات ناقصة أو غير دقيقة في بعض المناطق.</p>
+<p class="helper">هذه البيانات تأتي من OpenStreetMap وليس من تحليل صور الأقمار الصناعية. عند الضغط على «جلب»، تُرسل إحداثيات نطاق الأرض التقريبي إلى خدمة Overpass.</p>
+</div>
 <div id="roadSummary" class="maphelp" role="status">لم ترسم شوارع بعد. اختر «رسم شارع» وحدد مساره بالنقر على الخريطة، ثم اختر «إنهاء الشارع».</div>
 <div class="export-panel">
 <h2>تصدير المخطط الهندسي</h2>
-<p class="helper">ملف AutoCAD بصيغة DXF قابل للتعديل، مع طبقات مستقلة لحدود الأرض ومراكز الشوارع والأبعاد وسهم الشمال. وملف PDF متجهي A4 للطباعة.</p>
+<p class="helper">ملف AutoCAD بصيغة DXF قابل للتعديل، مع طبقات مستقلة لحدود الأرض ومراكز الشوارع والأبعاد وسهم الشمال. وملف PDF عربي عالي الوضوح A4 للطباعة، مع بيانات الشوارع المختارة.</p>
 <div class="actions"><button type="button" id="exportDXF" class="primary">تنزيل AutoCAD DXF</button><button type="button" id="exportPDF">تنزيل PDF</button></div>
-<p class="helper">لا تُصدّر صور الأقمار الصناعية نفسها بسبب حقوق مزوّد الخرائط. الشوارع تُرسَم يدويًا، وليست حدودًا رسمية للطرق. قياس العرض المدوّن وصفٌ للشارع ولا يمثل حرمًا قانونيًا.</p>
+<p class="helper">ملف DXF يحتوي على كتابات عربية (يتطلب خط AutoCAD يدعم العربية)، وPDF يحتوي نصوصًا عربية واضحة. الشوارع إما مرسومة يدويًا أو مستخرجة من OpenStreetMap عند اختيار الميزة. لا تُصدّر صور الأقمار الصناعية بسبب حقوق مزوّد الخرائط.</p>
 </div>
 <p class="maphelp">انتقل إلى موقع الأرض وقرّب الصورة. أدوات الرسم الآن أسفل الخريطة؛ اختر «إضافة الزوايا» وحدد حدود القطعة، أو «رسم شارع» لرسم محاور الشوارع المتصلة. اسحب العلامات الصغيرة لتعديلها، ويمكنك تحريك الخريطة في أي وقت.</p>
 <p class="maphelp">خرائط الأقمار الصناعية: Esri World Imagery مع نسب البيانات الظاهرة في الخريطة؛ خريطة الطرق: OpenStreetMap. يتطلب تحميل الصور اتصالًا بالإنترنت، وقد تُطبّق قيود استخدام مزود الخرائط.</p>
