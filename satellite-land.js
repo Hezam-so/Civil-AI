@@ -48,7 +48,7 @@ function selectMode(next){
 }
 function angleLatLng(p){return [p.lat,p.lng]}
 function icon(i){
- return L.divIcon({className:'survey-pin'+(selected===i?' selected':''),html:'<div>'+(i+1)+'</div>',iconSize:[15,15],iconAnchor:[7.5,7.5]});
+ return L.divIcon({className:'survey-pin'+(selected===i?' selected':''),html:'<div>'+(i+1)+'</div>',iconSize:[28,28],iconAnchor:[14,14]});
 }
 function distanceTooltip(a,b){
  const length=G.distance(a,b);
@@ -87,9 +87,7 @@ function renderRoads(){
     edit.on('drag',e=>{
      const v=e.target.getLatLng();
      roads[road.roadIndex].points[j]={lat:Number(v.lat.toFixed(8)),lng:Number(v.lng.toFixed(8))};
-     for(const layer of roadLayer.getLayers())if(layer instanceof L.Polyline){
-      // Redrawn at drag end; avoid replacing currently dragged marker.
-     }
+  
     });
     edit.on('dragend',()=>{
      if(before){undoStack.push(before);if(undoStack.length>45)undoStack.shift()}
