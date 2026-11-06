@@ -45,3 +45,11 @@
  #concrete .cm-table { font-size: 11px; }
  #concrete .cm-table th, #concrete .cm-table td { padding: 8px 5px; }
 }
+/* Compact optional admixture chooser; the technical mix defaults stay invisible. */
+#concrete #cmMixDefaults { display: none !important; }
+#concrete .cm-optional-chooser { margin: 16px 0 20px; }
+#concrete .cm-optional-chooser .cm-check { display: flex; align-items: center; gap: 9px; font-weight: 750; cursor: pointer; }
+#concrete .cm-optional-chooser .cm-check input { width: 19px; height: 19px; accent-color: #38bdf8; flex-shrink: 0; }
+#concrete .cm-optional-chooser #cmOptional { margin-top: 12px; padding: 14px; border: 1px solid #2c4c68; border-radius: 12px; background: #0c1c30; }
+#concrete .cm-optional-chooser #cmOptional[hidden] { display: none !important; }
+#concrete .cm-optional-chooser .cm-note { margin-top: 10px; }
