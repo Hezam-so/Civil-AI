@@ -158,5 +158,5 @@ $('saveStudioProject').onclick=async()=>{
 };
 
 // Initial calculations & UI
-tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'));$('secType').dispatchEvent(new Event('change'));calcBeam();$('calcSection').click();$('calcFoot').click();$('calcEarth').click();calcBars();window.addEventListener('civil-auth-ready',()=>initVault());if(window.CivilAccount)initVault();aiStatus();if(new URLSearchParams(location.search).get('open')==='files')nav('files');
+tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'));$('secType').dispatchEvent(new Event('change'));calcBeam();$('calcSection').click();$('calcFoot').click();$('calcEarth').click();calcBars();window.addEventListener('civil-auth-ready',()=>initVault());if(window.CivilAccount)initVault();aiStatus();const requestedPage=new URLSearchParams(location.search).get('open');if(['home','beam','section','footing','earth','rebar','files'].includes(requestedPage))nav(requestedPage);
 </script></body></html>
