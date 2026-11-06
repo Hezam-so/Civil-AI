@@ -108,52 +108,85 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   document.body.classList.remove('civil-authenticated');
   document.body.classList.add('civil-auth-screen');
   panel.replaceChildren();
-  const card=document.createElement('div');card.className='auth-card';
-  const title=document.createElement('h1');title.textContent='استعادة كلمة مرور Civil AI';
-  const intro=document.createElement('p');
-  intro.textContent=phase==='request'?'أدخل بريدك المسجل وسنرسل رمز تحقق مكوّنًا من 8 أرقام إذا كانت خدمة الإرسال مفعّلة.':'أدخل الرمز الذي وصل لبريدك، واختر كلمة مرور جديدة.';
-  const form=document.createElement('form');
-  form.innerHTML='<label for="civil-recovery-email">البريد الإلكتروني</label><input id="civil-recovery-email" type="email" required autocomplete="email" maxlength="254"><div id="civil-recovery-fields"><label for="civil-recovery-code">رمز التحقق (8 أرقام)</label><input id="civil-recovery-code" type="text" required inputmode="numeric" autocomplete="one-time-code" minlength="8" maxlength="8" pattern="[0-9]{8}" placeholder="00000000"><label for="civil-new-password">كلمة المرور الجديدة (8 أحرف أو أرقام على الأقل)</label><input id="civil-new-password" type="password" required autocomplete="new-password" minlength="8" maxlength="128"></div><div style="margin-top:17px;display:flex;gap:8px;flex-wrap:wrap"><button type="submit" id="civil-recovery-submit"></button><button type="button" class="auth-switch" id="civil-recovery-back">العودة لتسجيل الدخول</button></div><div class="auth-error" id="civil-recovery-error" role="alert"></div>';
-  card.append(title,intro,form);panel.append(card);document.body.append(panel);
-  const email=form.querySelector('#civil-recovery-email'),code=form.querySelector('#civil-recovery-code'),pw=form.querySelector('#civil-new-password'),fields=form.querySelector('#civil-recovery-fields'),btn=form.querySelector('#civil-recovery-submit'),err=form.querySelector('#civil-recovery-error');
+  const card=document.createElement('div');
+  card.className='auth-card';
+  card.innerHTML=
+    '<h1>استعادة كلمة مرور Civil AI</h1>'+
+    '<p>اتبع الخطوتين أدناه. ستجد مكان إدخال رمز التحقق وكلمة المرور الجديدة ظاهرًا أمامك.</p>'+
+    '<form id="civil-reset-request-form">'+
+      '<label for="civil-recovery-email"><strong>الخطوة 1: البريد الإلكتروني المسجّل</strong></label>'+
+      '<input id="civil-recovery-email" type="email" required autocomplete="email" maxlength="254" placeholder="name@example.com">'+
+      '<p id="civil-recovery-email-status" class="auth-note" role="status"></p>'+
+      '<button id="civil-reset-send" type="submit">إرسال رمز التحقق إلى بريدي</button>'+
+      '<p id="civil-reset-mailer-status" class="auth-note" role="status"></p>'+
+      '<div id="civil-reset-request-error" class="auth-error" role="alert"></div>'+
+    '</form>'+
+    '<div style="border-top:1px solid #3a5872;margin:24px 0 19px"></div>'+
+    '<h2 style="font-size:20px;margin:0 0 7px">الخطوة 2: إدخال رمز التحقق</h2>'+
+    '<p style="margin:0 0 10px">إذا وصلك رمز من 8 أرقام على بريدك، اكتبه في الخانة التالية ثم اختر كلمة مرور جديدة. لا تحتاج إلى فتح صفحة أخرى.</p>'+
+    '<form id="civil-reset-confirm-form">'+
+      '<label for="civil-recovery-code">رمز التحقق الذي وصلك بالبريد (8 أرقام)</label>'+
+      '<input id="civil-recovery-code" type="text" required inputmode="numeric" autocomplete="one-time-code" minlength="8" maxlength="8" pattern="[0-9]{8}" placeholder="00000000">'+
+      '<label for="civil-new-password">كلمة المرور الجديدة (8 أحرف أو أرقام على الأقل)</label>'+
+      '<input id="civil-new-password" type="password" required autocomplete="new-password" minlength="8" maxlength="128" placeholder="أدخل كلمة المرور الجديدة">'+
+      '<button id="civil-reset-confirm" type="submit" style="margin-top:13px">تأكيد الرمز وتغيير كلمة المرور</button>'+
+      '<div id="civil-reset-confirm-error" class="auth-error" role="alert"></div>'+
+    '</form>'+
+    '<button type="button" id="civil-reset-back" class="auth-switch" style="margin-top:16px">العودة إلى تسجيل الدخول</button>';
+  panel.append(card);
+  document.body.append(panel);
+  const email=card.querySelector('#civil-recovery-email');
+  const code=card.querySelector('#civil-recovery-code');
+  const requestBtn=card.querySelector('#civil-reset-send');
+  const confirmBtn=card.querySelector('#civil-reset-confirm');
+  const emailStatus=card.querySelector('#civil-recovery-email-status');
+  const mailerStatus=card.querySelector('#civil-reset-mailer-status');
+  const requestError=card.querySelector('#civil-reset-request-error');
+  const confirmError=card.querySelector('#civil-reset-confirm-error');
   email.value=initialEmail||'';
-  fields.style.display=phase==='request'?'none':'block';
-  // Hidden required inputs otherwise block the email-code request on mobile browsers.
-  code.disabled=phase==='request';pw.disabled=phase==='request';
-  btn.textContent=phase==='request'?'إرسال رمز التحقق':'تغيير كلمة المرور';
-  form.querySelector('#civil-recovery-back').onclick=()=>show('login');
-  const message=document.createElement('p');message.id='civil-recovery-message';message.className='auth-note';
-  message.textContent=phase==='confirm'?'الرمز صالح لعشر دقائق ويُستخدم مرة واحدة.':'اكتب بريدك وسيتم فحص تسجيله تلقائيًا.';
-  let registration=null;
-  if(phase==='request'){
-    autoCheckEmail(email,message,{onResult:(value)=>{registration=value}});
-    fetch('/api/password-recovery?action=status',{credentials:'same-origin',cache:'no-store'})
-      .then(r=>r.ok?r.json():null).then(status=>{
-        if(status&&!status.emailDeliveryConfigured){
-          const explanation='خدمة إرسال الرموز غير مفعّلة على الموقع حتى الآن. اضغط «إرسال رمز التحقق» لمعرفة تفاصيل المشكلة. لا يمكن إرسال رسالة قبل ربط مزود البريد.';
-          intro.textContent=explanation;
-          btn.title='لم يربط مالك الموقع خدمة إرسال البريد بعد';
-        }
-      }).catch(()=>{});
-  }
-  form.onsubmit=async(event)=>{
-   event.preventDefault();btn.disabled=true;err.textContent='';
-   try{
-    if(phase==='request'){
-      const found=registration&&emailLookupCache.get(email.value.trim().toLowerCase())?.result===registration?registration:await lookupEmail(email.value);
-      if(!found.registered)throw Error('هذا البريد غير مسجّل. يمكنك العودة وإنشاء حساب جديد.');
-      // The submit button stays responsive even while outgoing mail is unconfigured.
+  card.querySelector('#civil-reset-back').onclick=()=>show('login');
+  autoCheckEmail(email,emailStatus);
+  if(phase==='confirm')code.focus();
+  // Report real service status, but keep the button clickable so failures are explicit.
+  fetch('/api/password-recovery?action=status',{credentials:'same-origin',cache:'no-store'})
+   .then(r=>r.ok?r.json():null)
+   .then(status=>{
+     if(status&&!status.emailDeliveryConfigured){
+       mailerStatus.textContent='تنبيه: خدمة إرسال البريد غير مرتبطة بالموقع حتى الآن. لا يمكن وصول رمز حقيقي قبل تفعيل مزود البريد من مالك Civil AI.';
+       mailerStatus.style.color='#ffbd93';
+     }
+   }).catch(()=>{});
+  card.querySelector('#civil-reset-request-form').onsubmit=async(event)=>{
+    event.preventDefault();
+    requestError.textContent='';
+    requestBtn.disabled=true;
+    try{
+      const found=await lookupEmail(email.value);
+      if(!found.registered)throw Error('هذا البريد غير مسجّل في Civil AI. ارجع إلى شاشة التسجيل لإنشاء حساب.');
       const result=await recoveryApi('request',{email:email.value});
-      showRecovery('confirm',email.value);
-      const msg=panel.querySelector('#civil-recovery-message');
-      if(msg)msg.textContent=result.message||'تحقق من بريدك للحصول على رمز الاستعادة.';
-    }else{
-      const result=await recoveryApi('confirm',{email:email.value,code:code.value,newPassword:pw.value});
-      show('login',result.message||'تم تغيير كلمة المرور؛ سجل الدخول من جديد.');
-    }
-   }catch(e){err.textContent=e.message||'تعذر استعادة كلمة المرور.';btn.disabled=false}
+      mailerStatus.textContent=result.message||'تم قبول طلب الرمز. افحص بريدك الوارد وغير المرغوب.';
+      mailerStatus.style.color='#a4e8c9';
+      code.focus();
+    }catch(e){
+      requestError.textContent=e.message||'تعذر طلب رمز التحقق.';
+    }finally{requestBtn.disabled=false}
   };
-  card.append(message);
+  card.querySelector('#civil-reset-confirm-form').onsubmit=async(event)=>{
+    event.preventDefault();
+    confirmError.textContent='';
+    if(!email.reportValidity())return;
+    confirmBtn.disabled=true;
+    try{
+      const result=await recoveryApi('confirm',{
+        email:email.value,
+        code:code.value,
+        newPassword:card.querySelector('#civil-new-password').value
+      });
+      show('login',result.message||'تم تغيير كلمة المرور. سجل الدخول بكلمة المرور الجديدة.');
+    }catch(e){
+      confirmError.textContent=e.message||'تعذر التحقق من الرمز.';
+    }finally{confirmBtn.disabled=false}
+  };
  };
  const loggedIn=(user)=>{
   window.CivilAccount=user;document.body.classList.remove('civil-auth-screen');document.body.classList.add('civil-authenticated');panel.remove();
