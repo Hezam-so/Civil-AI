@@ -78,7 +78,7 @@ module.exports=async function(req,res){
  if(action!=='register'&&action!=='login')return invalid(res,404,'Unknown action');
  if(!permitAttempt(req,action))return invalid(res,429,'محاولات كثيرة. جرّب بعد عشر دقائق.');
  const email=normEmail(b.email),password=String(b.password||'');
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||password.length<12||password.length>128)return invalid(res,400,'أدخل بريدًا صحيحًا وكلمة مرور من 12 إلى 128 حرفًا.');
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)||email.length>254||password.length<6||password.length>128)return invalid(res,400,'أدخل بريدًا صحيحًا وكلمة مرور من 6 إلى 128 حرفًا.');
  const id=toId(email),path='civilai/users/'+id+'.json';
  if(action==='register'){
    const name=String(b.name||'').trim().slice(0,90);
