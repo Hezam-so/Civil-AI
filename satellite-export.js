@@ -81,6 +81,7 @@
   text('المساحة '+m.area.toFixed(3)+' م²  - المحيط '+m.perimeter.toFixed(3)+' م',{x:m.minX,y:m.minY-m.range*.30},charSize,'ANNOTATIONS');
   text('مرجع الإحداثيات P1 WGS84: '+m.origin.lat.toFixed(8)+' / '+m.origin.lng.toFixed(8),{x:m.minX,y:m.minY-m.range*.38},charSize*.8,'ANNOTATIONS');
   text('إحداثيات محلية بالمتر - اتجاه الشمال للأعلى - ليس رفعا مساحيا رسميا',{x:m.minX,y:m.minY-m.range*.45},charSize*.7,'ANNOTATIONS');
+  if(m.roads.some(r=>r.source==='OpenStreetMap'))text('مصدر الطرق المجاورة: مساهمو OpenStreetMap - رخصة ODbL',{x:m.minX,y:m.minY-m.range*.52},charSize*.65,'ANNOTATIONS');
   write('0','ENDSEC','0','EOF');
   return lines.join('\n')+'\n';
  }
