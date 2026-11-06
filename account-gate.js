@@ -85,6 +85,8 @@ body.civil-auth-screen>*:not(#civil-auth-overlay){display:none!important}
   const email=form.querySelector('#civil-recovery-email'),code=form.querySelector('#civil-recovery-code'),pw=form.querySelector('#civil-new-password'),fields=form.querySelector('#civil-recovery-fields'),btn=form.querySelector('#civil-recovery-submit'),err=form.querySelector('#civil-recovery-error');
   email.value=initialEmail||'';
   fields.style.display=phase==='request'?'none':'block';
+  // Hidden required inputs otherwise block the email-code request on mobile browsers.
+  code.disabled=phase==='request';pw.disabled=phase==='request';
   btn.textContent=phase==='request'?'إرسال رمز التحقق':'تغيير كلمة المرور';
   form.querySelector('#civil-recovery-back').onclick=()=>show('login');
   const check= form.querySelector('#civil-recovery-check');
