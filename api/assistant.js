@@ -5,7 +5,7 @@
  */
 const crypto=require('node:crypto');
 const {get,put,list}=require('@vercel/blob');
-const MODEL=process.env.CIVIL_AI_AI_MODEL||'openai/gpt-5-mini';
+const MODEL=process.env.CIVIL_AI_AI_MODEL||'openai/gpt-5.4-mini';
 const MAX_AI_DAILY=12;
 const ttl=14*86400;
 const respond=(res,status,data)=>res.status(status).json(data);
@@ -170,7 +170,7 @@ async function askModel(messages){
  const response=await fetch('https://ai-gateway.vercel.sh/v1/chat/completions',{
   method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
   signal:AbortSignal.timeout(25000),
-  body:JSON.stringify({model:MODEL,messages,tools,tool_choice:'auto',max_completion_tokens:1250})
+  body:JSON.stringify({model:MODEL,messages,tools,tool_choice:'auto',max_completion_tokens:2400})
  });
  if(!response.ok){
   console.error('Civil AI gateway status',response.status);
