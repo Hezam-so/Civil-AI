@@ -5,7 +5,9 @@
  */
 const crypto=require('node:crypto');
 const {get}=require('@vercel/blob');
-const MODEL=process.env.CIVIL_AI_AI_MODEL||'openai/gpt-5.4-mini';
+const knowledge=require('./civil-knowledge');
+const advanced=require('./civil-advanced');
+const MODEL=process.env.CIVIL_AI_AI_MODEL||'inclusionai/ling-3.0-flash-vl-free'; // free-listed multimodal
 const ttl=14*86400;
 const respond=(res,status,data)=>res.status(status).json(data);
 const num=(v,label,{min=0,max=1e9,zero=true}={})=>{
@@ -74,7 +76,7 @@ const calc=(kind,v={})=>{
  default:throw Error('نوع المسألة غير مدعوم. اختر أداة من القائمة.');
  }
 };
-const specs={
+const basicSpecs={
  beam_udl:{description:'Calculate simply supported beam under full-span uniform distributed load (UDL). Inputs L in meters and w in kN/m; exact deterministic formulas.',properties:{spanM:{type:'number'},loadKnPerM:{type:'number'}},required:['spanM','loadKnPerM']},
  beam_point:{description:'Simply supported beam with a single vertical point load exactly at midspan, L meters P kN.',properties:{spanM:{type:'number'},loadKn:{type:'number'}},required:['spanM','loadKn']},
  concrete_volume:{description:'Concrete volume of a rectangular prism. All dimensions meters, optional waste percentage and cost per cubic meter.',properties:{lengthM:{type:'number'},widthM:{type:'number'},heightM:{type:'number'},wastePercent:{type:'number'},unitCost:{type:'number'}},required:['lengthM','widthM','heightM']},
@@ -85,12 +87,20 @@ const specs={
  open_tool:{description:'Propose navigation to a section of Civil AI. Does not execute; user must approve.',properties:{target:{type:'string',enum:['main','studio']},page:{type:'string'},reason:{type:'string'}},required:['target','page']},
  prepare_main_form:{description:'Propose (not execute) filling homepage beam or concrete calculator fields after explicit user request. User must approve in UI.',properties:{page:{type:'string',enum:['beam','concrete']},spanM:{type:'number'},loadType:{type:'string',enum:['udl','point']},loadValue:{type:'number'},lengthM:{type:'number'},widthM:{type:'number'},heightM:{type:'number'},wastePercent:{type:'number'},unitCost:{type:'number'}},required:['page']}
 };
+const specs={...basicSpecs,...advanced.specs,
+ open_page:{description:'Suggest opening one of the verified Civil AI pages with user approval.',properties:{pageId:{type:'string',enum:knowledge.pages.map(p=>p.id)}},required:['pageId']}
+};
 const tools=Object.entries(specs).map(([name,v])=>({type:'function',function:{name,description:v.description,parameters:{type:'object',properties:v.properties,required:v.required,additionalProperties:false}}}));
 const pageAllowed={
  main:new Set(['home','beam','concrete','units','projects','assistant']),
  studio:new Set(['home','beam','section','footing','earth','rebar','files','assistant'])
 };
 function act(name,args){
+ if(name==='open_page'){
+  const page=knowledge.pages.find(p=>p.id===args.pageId);
+  if(!page||!knowledge.allowedRoutes.has(page.route))throw Error('Unknown site page');
+  return {type:'navigate',target:'url',page:page.id,url:page.route,label:page.name,reason:page.summary};
+ }
  if(name==='open_tool'){
   const target=String(args.target),page=String(args.page);
   if(!pageAllowed[target]?.has(page))throw Error('هذه الصفحة غير متاحة.');
