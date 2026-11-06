@@ -57,6 +57,9 @@ module.exports=async function(req,res){
  res.setHeader('Cache-Control','no-store, private');
  res.setHeader('X-Content-Type-Options','nosniff');
  try{
+  if(req.method==='GET'&&new URL(req.url,'https://civil-ai.invalid').searchParams.get('action')==='status'){
+   return res.status(200).json({emailDeliveryConfigured:Boolean(process.env.RESEND_API_KEY&&process.env.CIVIL_AI_EMAIL_FROM)});
+  }
   if(req.method!=='POST')return fail(res,405,'Method not allowed');
   if(!sourceOK(req))return fail(res,403,'يجب إرسال الطلب من موقع Civil AI.');
   if(Number(req.headers['content-length']||0)>5000)return fail(res,413,'طلب كبير للغاية.');
@@ -95,8 +98,8 @@ module.exports=async function(req,res){
   }
   const code=String(body.code||'').trim();
   const newPassword=String(body.newPassword||'');
-  if(!/^\d{8}$/.test(code)||newPassword.length<6||newPassword.length>128)
-   return fail(res,400,'أدخل رمزًا من 8 أرقام وكلمة مرور جديدة من 6 إلى 128 حرفًا.');
+  if(!/^\d{8}$/.test(code)||newPassword.length<8||newPassword.length>128)
+   return fail(res,400,'أدخل رمزًا من 8 أرقام وكلمة مرور جديدة من 8 إلى 128 حرفًا.');
   const [existing,record]=await Promise.all([read(userPath),read(resetPath)]);
   if(!existing||!record||record.value.used||record.value.expiresAt<Date.now()||record.value.attempts>=MAX_ATTEMPTS)
    return fail(res,400,'الرمز غير صحيح أو انتهت صلاحيته. اطلب رمزًا جديدًا.');
