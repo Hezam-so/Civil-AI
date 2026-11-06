@@ -9,3 +9,11 @@ a.nav{text-decoration:none}
 .site-contact__phone{display:inline-flex;align-items:center;gap:10px;border:1px solid #3497b1;border-radius:12px;background:#153d57;color:#e9faff;text-decoration:none;font-size:16px;font-weight:750;padding:10px 16px;direction:ltr}
 .site-contact__phone:hover{background:#205573}
 @media(max-width:600px){.site-contact{padding:14px}.site-contact__phone{width:100%;justify-content:center}}
+
+
+/* Prominent cross-program drawing-upload shortcut */
+.upload-shortcut{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin:20px 0;padding:18px 20px;border:1px solid #3c89b7;border-radius:16px;background:linear-gradient(105deg,#123b55,#0d2745);box-shadow:0 8px 25px #06152b22;color:#eefaff}
+.upload-shortcut strong{font-size:19px}.upload-shortcut p{margin:4px 0 0;color:#bcdeea;font-size:13px}
+.upload-shortcut-link{background:#1788bd;color:#fff;border:1px solid #38a5d5;text-decoration:none;border-radius:11px;padding:11px 16px;font-weight:750;display:inline-flex;align-items:center;justify-content:center}
+.upload-shortcut-link:hover{background:#207bab}
+@media(max-width:650px){.upload-shortcut{padding:15px}.upload-shortcut-link{width:100%}}
