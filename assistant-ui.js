@@ -67,6 +67,7 @@
      if(action.type==='prefill')sessionStorage.setItem('civilai_confirmed_ai_prefill',JSON.stringify({page:action.page,fields:action.fields,at:Date.now()}));
      location.href='/?open='+encodeURIComponent(action.page);
     }else if(action.target==='studio'){
+     if(action.type==='prefill')sessionStorage.setItem('civilai_confirmed_studio_prefill',JSON.stringify({page:action.page,fields:action.fields,at:Date.now()}));
      location.href='/studio.html?open='+encodeURIComponent(action.page);
     }
    };
