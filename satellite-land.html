@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0c2037">
+<meta name="description" content="قياس الأراضي من خرائط الأقمار الصناعية عبر رسم الحدود والنقاط وحساب المساحة والمحيط — Civil AI">
+<title>قياس الأرض عبر الأقمار الصناعية | Civil AI</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{color-scheme:dark;--line:#335c74;--text:#ecf9ff;--muted:#b4d0df;--cyan:#68e1e7}
+*{box-sizing:border-box}
+body{visibility:hidden;margin:0;background:radial-gradient(ellipse at 80% 0%,#224f72,#071426 48%);color:var(--text);font:14px/1.65 system-ui,Tahoma,Arial,sans-serif}
+button,input,select{font:inherit}button{cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}
+a{color:#8addf4}.wrap{max-width:1250px;margin:auto;padding:18px 14px 42px}
+.top{display:flex;align-items:center;justify-content:space-between;gap:13px;flex-wrap:wrap;padding:10px 0 17px;border-bottom:1px solid var(--line)}
+.brand{font-size:23px;font-weight:900}.brand b{color:var(--cyan)}
+.links{display:flex;flex-wrap:wrap;gap:8px}.links a{border:1px solid #315a77;background:#153550;padding:8px 12px;border-radius:10px;text-decoration:none}
+.hero{margin:20px 0 15px}h1{font-size:clamp(24px,4vw,34px);margin:0 0 6px}h2{font-size:19px;margin:0 0 10px}
+.hero p{color:var(--muted);margin:0}.notice{background:#332c22;border:1px solid #927646;color:#f6d7a5;padding:11px 14px;border-radius:12px;margin:12px 0;font-size:12px}
+.layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(310px,.75fr);gap:15px;align-items:start}
+.panel{background:linear-gradient(145deg,#103049,#0d2239);border:1px solid var(--line);padding:15px;border-radius:15px;min-width:0}
+.toolbar,.row{display:flex;gap:7px;flex-wrap:wrap;align-items:center}
+.toolbar{margin-bottom:11px}.toolbar button,.row button,.row a,.actions button{border:1px solid #4586a7;background:#1b5276;color:#eefaff;border-radius:9px;padding:9px 11px;font-weight:650}
+.toolbar button[aria-pressed="true"]{background:#078caa;border-color:#75dfe7}.toolbar button.primary,.actions button.primary{background:#0d86ae}
+.field{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;min-width:0}
+.field label{font-size:12px;font-weight:650;color:#c5dfed}
+input,select{border:1px solid #496e87;border-radius:9px;background:#091e33;color:#fff;padding:9px 10px;width:100%;min-width:0}
+input:focus,select:focus{outline:2px solid #49d5df}
+#satelliteMap{height:min(64vh,590px);min-height:390px;background:#18293b;border-radius:12px;border:1px solid #346181;overflow:hidden;direction:ltr}
+.leaflet-container{font-family:system-ui,Tahoma,Arial,sans-serif}.leaflet-control-attribution{font-size:10px!important;max-width:95%;white-space:normal!important}
+.leaflet-tooltip.distance-tooltip{background:#072638eb;color:#f4edbf;border:1px solid #9ebcb9;padding:3px 6px;box-shadow:none;font-size:11px;font-weight:700}
+.leaflet-tooltip.distance-tooltip:before{display:none}
+.leaflet-div-icon.survey-pin{background:transparent;border:none}
+.survey-pin>div{display:grid;place-items:center;width:30px;height:30px;border-radius:50%;background:#e5aa56;border:2px solid #fff;color:#09263a;font-weight:800;box-shadow:0 2px 7px #1119}
+.survey-pin.selected>div{background:#54d9d9;border-color:#fff}
+.maphelp{margin:10px 0 0;color:#bbd8e8;font-size:12px}
+.summary{border:1px solid #367d92;border-radius:12px;background:#0c314b;padding:13px;margin-bottom:12px}
+.summary strong{display:block;font-size:clamp(25px,4vw,36px);color:#8df2e9;font-variant-numeric:tabular-nums;direction:ltr;text-align:right;overflow-wrap:anywhere}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:10px}
+.metric{padding:10px;border-radius:9px;background:#123c55;min-width:0}
+.metric small{font-size:11px;color:#bdd7e5}.metric b{display:block;font-size:16px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.status{padding:9px 11px;border-radius:9px;background:#123954;color:#c9eef1;min-height:33px;font-size:12px;white-space:pre-wrap;margin-bottom:10px}
+.status.error{background:#493033;color:#ffc4ba}
+.tablewrap{max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:9px}
+table{border-collapse:collapse;width:100%}th,td{padding:7px 4px;border-bottom:1px solid #2a4a61;text-align:center;font-size:12px}th{background:#184158}td input{padding:7px 4px;font-size:12px;min-width:64px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{flex:1}
+.helper{font-size:12px;color:var(--muted);margin:7px 0}
+hr{border:0;border-top:1px solid var(--line);margin:15px 0}
+.footer{border-top:1px solid var(--line);margin-top:24px;padding-top:15px;color:var(--muted);font-size:12px}
+@media(max-width:860px){.layout{grid-template-columns:1fr}#satelliteMap{height:52vh;min-height:350px}}
+@media(max-width:500px){.wrap{padding:12px 9px 34px}.panel{padding:10px}.toolbar button{padding:8px 9px;font-size:12px}#satelliteMap{min-height:370px;height:54vh}}
+@media print{body{visibility:visible!important;background:white!important;color:#111!important}.top,.toolbar,.actions,#accountMenu,#civil-user-menu{display:none!important}.layout{display:block}.panel,.summary,.metric{background:white!important;color:#111!important}.leaflet-container{print-color-adjust:exact}}
+</style>
+<script src="account-gate.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js" defer></script>
+<script src="satellite-land-core.js" defer></script>
+<script src="satellite-land.js" defer></script>
+</head><body><div class="wrap">
+<header class="top"><div class="brand">CIVIL <b>AI</b></div><nav class="links"><a href="/">الرئيسية</a><a href="irregular-land.html">رسم أرض غير منتظمة</a><a href="land-area.html">تحويل المساحات</a></nav></header>
+<main>
+<section class="hero">
+<h1>قياس مساحة الأرض عبر الأقمار الصناعية</h1>
+<p>حدد موقع الأرض على الخريطة، واضغط على زوايا حدودها واحدة تلو الأخرى. سيُظهر الموقع المساحة والمحيط وأطوال الأضلاع، ويمكنك سحب أي زاوية لتعديل القياس.</p>
+</section>
+<div class="notice">هذا قياس <b>تقديري</b> من إحداثيات النقاط التي تحددها على الصورة، ودقة النتيجة تعتمد على وضوح الصورة وحداثتها وصحة تحديد الحدود. ليس رفعًا مساحيًا معتمدًا ولا يُستخدم بدل مستندات الملكية أو المسّاح المختص. الصور الفضائية ليست تصويرًا مباشرًا في الوقت الحقيقي.</div>
+<div class="layout">
+<section class="panel" aria-label="الخريطة وقياس الحدود">
+<div class="toolbar">
+<button type="button" id="addMode" class="primary" aria-pressed="true">＋ إضافة الزوايا</button>
+<button type="button" id="moveMode" aria-pressed="false">✥ تحريك الخريطة</button>
+<button type="button" id="undoPoint">↶ تراجع</button>
+<button type="button" id="clearPoints">مسح الحدود</button>
+</div>
+<div class="toolbar">
+<button type="button" id="satelliteLayer" aria-pressed="true">🛰️ أقمار صناعية</button>
+<button type="button" id="streetLayer" aria-pressed="false">🗺️ خريطة الطرق</button>
+<button type="button" id="locateMe">◎ موقعي الحالي</button>
+</div>
+<div class="row" style="margin-bottom:10px">
+<div class="field" style="flex:1;min-width:145px;margin-bottom:0"><label for="jumpLat">خط العرض Latitude</label><input id="jumpLat" inputmode="decimal" type="number" step="any" placeholder="مثال: 15.3694"></div>
+<div class="field" style="flex:1;min-width:145px;margin-bottom:0"><label for="jumpLng">خط الطول Longitude</label><input id="jumpLng" inputmode="decimal" type="number" step="any" placeholder="مثال: 44.1910"></div>
+<button type="button" id="jumpTo" style="margin-top:17px">الذهاب إلى الإحداثيات</button>
+</div>
+<div id="satelliteMap" role="application" aria-label="خريطة تفاعلية لرسم حدود الأرض"></div>
+<p class="maphelp">أولًا انتقل إلى موقع الأرض وقرّب الصورة. اضغط «إضافة الزوايا» ثم حدد الحدود بالترتيب. لتحريك نقطة، اسحب العلامة المرقمة بإصبعك. تظهر المسافات بالمتر على خطوط الحدود.</p>
+<p class="maphelp">خرائط الأقمار الصناعية: Esri World Imagery مع نسب البيانات الظاهرة في الخريطة؛ خريطة الطرق: OpenStreetMap. يتطلب تحميل الصور اتصالًا بالإنترنت، وقد تُطبّق قيود استخدام مزود الخرائط.</p>
+</section>
+<aside class="panel" aria-label="نتائج القياس والملفات">
+<h2>نتائج قياس الأرض</h2>
+<div class="summary"><small>المساحة الإجمالية (م²)</small><strong id="areaMain">—</strong>
+<div class="metrics">
+<div class="metric"><small>الهكتار (ha)</small><b id="hectares">—</b></div>
+<div class="metric"><small>اللبنة الصنعانية</small><b id="labna">—</b></div>
+<div class="metric"><small>المحيط بالمتر</small><b id="perimeter">—</b></div>
+<div class="metric"><small>الفدان الإنجليزي</small><b id="acres">—</b></div>
+</div></div>
+<div class="status" id="mapStatus" role="status" aria-live="polite">أضف 3 نقاط أو أكثر لبدء حساب المساحة.</div>
+<div class="field"><label for="projectTitle">اسم مشروع الأرض</label><input id="projectTitle" value="أرض مقاسة من الخريطة" maxlength="120"></div>
+<div class="field"><label for="resultUnit">إظهار المساحة بوحدة القياس</label>
+<select id="resultUnit">
+<option value="m2">متر مربع</option>
+<option value="labna">لبنة صنعانية (44.44 م²)</option>
+<option value="dhamar">لبنة ذمارية (114.49 م²)</option>
+<option value="amran">لبنة عمرانية (64 م²)</option>
+<option value="taiz">قصبة تعز العشارية (20.25 م²)</option>
+<option value="ibb">قصبة إب (56.25 م²)</option>
+<option value="ha">هكتار</option>
+<option value="acre">فدان إنجليزي</option>
+<option value="ft2">قدم مربع</option></select></div>
+<div class="field"><label for="converted">المساحة بالوحدة المختارة</label><input id="converted" readonly aria-live="polite"></div>
+<h2>زوايا الأرض</h2>
+<p class="helper">الخطوط بين النقاط تمثل حدود الأرض. يمكنك تحرير الإحداثيات يدويًا أو حذف نقطة محددة.</p>
+<div class="tablewrap"><table><thead><tr><th>النقطة</th><th>Latitude</th><th>Longitude</th><th>حذف</th></tr></thead><tbody id="pointRows"></tbody></table></div>
+<div class="actions"><button id="saveProject" class="primary">حفظ في مشاريعي</button><button id="copyResult">نسخ القياسات</button><button id="printResult">طباعة</button></div>
+<hr>
+<h2>قياساتي المحفوظة</h2>
+<p class="helper">تُحفظ حدود الأراضي في حسابك الخاص؛ وتظهر عند تسجيل الدخول من جهاز آخر.</p>
+<button id="loadProjects" type="button">عرض قياساتي المحفوظة</button>
+<div class="field" style="margin-top:10px"><label for="savedProjects">اختر قياسًا لاستعادة النقاط على الخريطة</label><select id="savedProjects"><option value="">اختر بعد تحميل المشاريع</option></select></div>
+<button id="restoreProject" type="button">فتح القياس المحفوظ</button>
+</aside>
+</div>
+</main>
+<footer class="footer">Civil AI · Eng. Hezam Suleiman · <a href="tel:+967775264654">+967775264654</a></footer>
+</div></body></html>
