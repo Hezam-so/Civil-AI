@@ -26,7 +26,7 @@ h2{font-size:20px;margin:0 0 12px}
 h3{font-size:16px;margin:0 0 10px}
 .hero p,.sub{color:var(--muted);margin:6px 0;max-width:1000px}
 .warnings{background:#342b24;border:1px solid #836b42;padding:12px 15px;color:#f4d6a7;border-radius:12px;font-size:13px;margin:14px 0}
-.layout{display:grid;grid-template-columns:minmax(0,1.06fr) minmax(0,.94fr);gap:16px;align-items:start}
+.layout{display:block;max-width:960px;margin:0 auto}.land-results{margin-top:6px;padding-top:12px;border-top:1px solid var(--line)}.land-results h2{font-size:17px;margin-bottom:10px}.land-calculator .result{margin-top:0}
 .card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(145deg,#102a45,#0d2036);padding:21px;min-width:0}
 .field{display:flex;flex-direction:column;gap:5px;margin:0 0 14px}
 .field label{font-weight:650;font-size:13px;color:#c8e0f1}
@@ -48,10 +48,6 @@ h3{font-size:16px;margin:0 0 10px}
 .chip{background:#102f4d;padding:11px;border-radius:10px;border:1px solid #32556f;min-width:0}
 .chip b{display:block;font-size:17px;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
 .chip span{color:#b4ccdd;font-size:12px}
-.formula{background:#0b2037;padding:11px;border-radius:10px;color:#c7d7e9;word-break:break-word;font-size:13px;direction:ltr;text-align:left}
-.custom{border:1px dashed #4c7a97;border-radius:12px;padding:13px;background:#10243a;margin-top:15px}
-.custom.hidden{display:none}
-.pill{display:inline-flex;align-items:center;border:1px solid #437b98;border-radius:99px;padding:2px 9px;font-size:11px;color:#a7ecff;margin-bottom:8px}
 #notice{min-height:28px;font-size:13px;color:#e7d09e;margin-top:10px;white-space:pre-wrap}
 .table-card{margin-top:18px}
 .table-scroll{overflow:auto;width:100%;border:1px solid #2d4a65;border-radius:10px}
@@ -67,7 +63,7 @@ tbody tr:hover{background:#16344e}
 .footer a{direction:ltr}
 @media(max-width:800px){.layout{grid-template-columns:1fr}.card{padding:16px}}
 @media(max-width:530px){.container{padding:14px 11px 36px}.two{grid-template-columns:1fr}.unit-row{grid-template-columns:minmax(0,1fr) 44px minmax(0,1fr);gap:5px}.unit-row .field select{font-size:12px;padding:10px 5px}.unit-row .field label{font-size:11px}.chips{gap:6px}.chip{padding:9px}.chip b{font-size:15px}.navlinks{width:100%}.navlinks a{flex:1;text-align:center}.footer{font-size:12px}}
-@media print{body{background:white!important;color:#111!important;visibility:visible!important}.card,.result,.chip,.custom{background:#fff!important;color:#111!important;box-shadow:none}nav,.actions,#swap,#langButton,.footer{display:none!important}table{min-width:0}th,td{color:#111!important}#civil-owner-banner{position:static!important}}
+@media print{body{background:white!important;color:#111!important;visibility:visible!important}.card,.result,.chip{background:#fff!important;color:#111!important;box-shadow:none}nav,.actions,#swap,#langButton,.footer{display:none!important}table{min-width:0}th,td{color:#111!important}#civil-owner-banner{position:static!important}}
 </style>
 <script src="account-gate.js" defer></script>
 <script src="land-area.js" defer></script>
@@ -91,35 +87,18 @@ tbody tr:hover{background:#16344e}
 <div class="warnings" data-ar="تنبيه مساحي: الوحدات اليمنية عرفية وقد تختلف قيمتها بين المديريات والقرى. القيم أدناه مقادير متداولة وليست جدولًا حكوميًا موحدًا. أكّد قيمة الوحدة من الوثيقة والمسّاح قبل البيع أو الشراء." data-en="Survey notice: Yemeni traditional measures are customary and may vary by district or village. These are published commonly used values, not an official nationwide standard. Confirm the unit with the title deed and surveyor before any transaction.">تنبيه مساحي: الوحدات اليمنية عرفية وقد تختلف قيمتها بين المديريات والقرى. القيم أدناه مقادير متداولة وليست جدولًا حكوميًا موحدًا. أكّد قيمة الوحدة من الوثيقة والمسّاح قبل البيع أو الشراء.</div>
 </header>
 <div class="layout">
-<section class="card" aria-labelledby="calculatorHeading">
-<h2 id="calculatorHeading" data-ar="حساب وتحويل المساحة" data-en="Area Calculation & Conversion">حساب وتحويل المساحة</h2>
-<div class="two">
-<div class="field"><label for="areaAmount" data-ar="المساحة المراد تحويلها" data-en="Area amount">المساحة المراد تحويلها</label><input id="areaAmount" type="number" value="10" min="0" step="any" inputmode="decimal" autocomplete="off"></div>
-<div class="field"><label for="regionFilter" data-ar="تصفية وحدات المصدر حسب المنطقة" data-en="Filter source units by region">تصفية وحدات المصدر حسب المنطقة</label><select id="regionFilter"></select><small data-ar="تظهر الوحدات الدولية دائمًا، ويمكنك اختيار جميع المناطق." data-en="International units remain available. Choose all regions to see every Yemeni unit.">تظهر الوحدات الدولية دائمًا، ويمكنك اختيار جميع المناطق.</small></div>
+<section class="card land-calculator" aria-labelledby="calculatorHeading">
+<h2 id="calculatorHeading" data-ar="حساب وتحويل المساحة" data-en="Area Conversion">حساب وتحويل المساحة</h2>
+<div class="field">
+<label for="areaAmount" data-ar="المساحة المراد تحويلها" data-en="Area amount">المساحة المراد تحويلها</label>
+<input id="areaAmount" type="number" value="10" min="0" step="any" inputmode="decimal" autocomplete="off">
 </div>
 <div class="unit-row">
 <div class="field"><label for="fromUnit" data-ar="من وحدة" data-en="From unit">من وحدة</label><select id="fromUnit"></select></div>
 <button type="button" id="swap" class="button muted" title="تبديل الوحدتين" aria-label="تبديل وحدتي التحويل">⇄</button>
 <div class="field"><label for="toUnit" data-ar="إلى وحدة" data-en="To unit">إلى وحدة</label><select id="toUnit"></select></div>
 </div>
-<div id="factorEditor" class="custom hidden" aria-live="polite">
-<span class="pill" data-ar="قيمة محلية قابلة للتعديل" data-en="Editable local factor">قيمة محلية قابلة للتعديل</span>
-<div class="field"><label for="factorInput" data-ar="متر مربع لكل وحدة محددة" data-en="Square metres per selected unit">متر مربع لكل وحدة محددة</label><input id="factorInput" type="number" min="0.000000001" step="any" inputmode="decimal"></div>
-<div id="customMeta" class="two">
-<div class="field"><label for="customName" data-ar="اسم وحدتك المحلية" data-en="Custom unit name">اسم وحدتك المحلية</label><input id="customName" value="وحدة محلية" maxlength="90"></div>
-<div class="field"><label for="customRegion" data-ar="المنطقة أو المديرية" data-en="Local region or district">المنطقة أو المديرية</label><input id="customRegion" placeholder="مثلاً: حجة، شبوة…" maxlength="80"></div>
-</div>
-<div class="actions"><button class="button muted" id="saveFactor" type="button" data-ar="اعتماد القيمة المحلية" data-en="Apply local factor">اعتماد القيمة المحلية</button><button class="button muted" id="resetFactor" type="button" data-ar="استعادة القيمة المرجعية" data-en="Restore default factor">استعادة القيمة المرجعية</button></div>
-<small data-ar="التعديلات تبقى على هذا الجهاز فقط. الوحدات العالمية لها معاملات ثابتة لا يمكن تغييرها." data-en="Overrides are stored on this device only. Global standardized conversion factors cannot be edited.">التعديلات تبقى على هذا الجهاز فقط. الوحدات العالمية لها معاملات ثابتة لا يمكن تغييرها.</small>
-</div>
-<div class="actions">
-<button id="copyResult" class="button" type="button" data-ar="نسخ نتيجة التحويل" data-en="Copy conversion">نسخ نتيجة التحويل</button>
-<button id="saveResult" class="button primary" type="button" data-ar="حفظ في مشاريعي" data-en="Save to My Projects">حفظ في مشاريعي</button>
-<button class="button muted" type="button" id="printResult" data-ar="طباعة" data-en="Print">طباعة</button>
-</div>
-<div id="notice" role="status" aria-live="polite"></div>
-</section>
-<section class="card" aria-labelledby="resultHeading">
+<section class="land-results" aria-labelledby="resultHeading">
 <h2 id="resultHeading" data-ar="نتيجة التحويل" data-en="Conversion Result">نتيجة التحويل</h2>
 <div class="result" aria-live="polite"><small id="conversionLabel">المساحة المكافئة</small><div class="mainval" id="mainResult">—</div><small id="conversionDetail"></small></div>
 <div class="chips">
@@ -128,9 +107,13 @@ tbody tr:hover{background:#16344e}
 <div class="chip"><span data-ar="قدم مربع (ft²)" data-en="Square feet (ft²)">قدم مربع (ft²)</span><b id="inFeet">—</b></div>
 <div class="chip"><span data-ar="فدان إنجليزي (acre)" data-en="Acres (ac)">فدان إنجليزي (acre)</span><b id="inAcres">—</b></div>
 </div>
-<h3 style="margin-top:15px" data-ar="طريقة الحساب" data-en="Calculation">طريقة الحساب</h3>
-<div id="formula" class="formula">—</div>
-<p class="sub" id="activeFactorNote"></p>
+</section>
+<div class="actions">
+<button id="copyResult" class="button" type="button" data-ar="نسخ نتيجة التحويل" data-en="Copy conversion">نسخ نتيجة التحويل</button>
+<button id="saveResult" class="button primary" type="button" data-ar="حفظ في مشاريعي" data-en="Save to My Projects">حفظ في مشاريعي</button>
+<button class="button muted" type="button" id="printResult" data-ar="طباعة" data-en="Print">طباعة</button>
+</div>
+<div id="notice" role="status" aria-live="polite"></div>
 </section>
 </div>
 <section class="card table-card">
@@ -143,7 +126,7 @@ tbody tr:hover{background:#16344e}
 </section>
 <section class="card table-card">
 <h2 data-ar="المراجع وحدود الاستخدام" data-en="Sources and Interpretation">المراجع وحدود الاستخدام</h2>
-<div class="warnings" data-ar="تنبيه خاص بالمعاد التهامي: يرد في مراجع السوق بقيمة 4,355.12 م²، بينما يسرد جدول في دليل وزارة العدل قيمة 435.12 م²؛ لذلك لا تتعامل مع القيمة المعروضة باعتبارها موحّدة. راجع سند الأرض أو أدخل قيمة محلية مصححة." data-en="Tihama ma’ad discrepancy: real-estate references give 4,355.12 m², while a table in the Yemeni Ministry of Justice handbook lists 435.12 m². The displayed factor is NOT a universal standard; check the deed or override the local value.">تنبيه خاص بالمعاد التهامي: يرد في مراجع السوق بقيمة 4,355.12 م²، بينما يسرد جدول في دليل وزارة العدل قيمة 435.12 م²؛ لذلك لا تتعامل مع القيمة المعروضة باعتبارها موحّدة. راجع سند الأرض أو أدخل قيمة محلية مصححة.</div><p class="sub" data-ar="الأنظمة المترية والبريطانية تستخدم معاملات معرفة بدقة. أما المقادير المحلية اليمنية فمرجعية عرفية ويجب مطابقتها مع سند الأرض والعرف المحلي والرفع المساحي." data-en="Metric and imperial conversions use defined factors. Yemeni customary values are indicative and must be checked against the land deed, local practice, and a professional survey.">الأنظمة المترية والبريطانية تستخدم معاملات معرفة بدقة. أما المقادير المحلية اليمنية فمرجعية عرفية ويجب مطابقتها مع سند الأرض والعرف المحلي والرفع المساحي.</p>
+<div class="warnings" data-ar="تنبيه خاص بالمعاد التهامي: يرد في مراجع السوق بقيمة 4,355.12 م²، بينما يسرد جدول في دليل وزارة العدل قيمة 435.12 م²؛ لذلك لا تتعامل مع القيمة المعروضة باعتبارها موحّدة. راجع سند الأرض ومقدار الوحدة المعتمد في منطقتك قبل الاعتماد على النتيجة." data-en="Tihama ma’ad discrepancy: real-estate references give 4,355.12 m², while a table in the Yemeni Ministry of Justice handbook lists 435.12 m². The displayed factor is NOT a universal standard; check the deed and your district’s accepted measure before relying on the result.">تنبيه خاص بالمعاد التهامي: يرد في مراجع السوق بقيمة 4,355.12 م²، بينما يسرد جدول في دليل وزارة العدل قيمة 435.12 م²؛ لذلك لا تتعامل مع القيمة المعروضة باعتبارها موحّدة. راجع سند الأرض ومقدار الوحدة المعتمد في منطقتك قبل الاعتماد على النتيجة.</div><p class="sub" data-ar="الأنظمة المترية والبريطانية تستخدم معاملات معرفة بدقة. أما المقادير المحلية اليمنية فمرجعية عرفية ويجب مطابقتها مع سند الأرض والعرف المحلي والرفع المساحي." data-en="Metric and imperial conversions use defined factors. Yemeni customary values are indicative and must be checked against the land deed, local practice, and a professional survey.">الأنظمة المترية والبريطانية تستخدم معاملات معرفة بدقة. أما المقادير المحلية اليمنية فمرجعية عرفية ويجب مطابقتها مع سند الأرض والعرف المحلي والرفع المساحي.</p>
 <ul class="refs">
 <li><a href="https://maskani.homes/blog/yemen-land-units-explained" target="_blank" rel="noopener noreferrer">وحدات المساحة اليمنية — مسكني</a></li>
 <li><a href="https://ye.alaqarya.com/magazine/395" target="_blank" rel="noopener noreferrer">قصب تعز وإب — العقارية كوم</a></li>
