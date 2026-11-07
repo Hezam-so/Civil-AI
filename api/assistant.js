@@ -92,7 +92,7 @@ const basicSpecs={
 };
 const specs={...basicSpecs,...advanced.specs,
  open_page:{description:'Suggest opening one of the verified Civil AI pages with user approval.',properties:{pageId:{type:'string',enum:knowledge.pages.map(p=>p.id)}},required:['pageId']},
- prepare_studio_form:{description:'Suggest prefill of supported Studio beam, footing and section fields after explicit user confirmation; never executes or saves.',properties:{page:{type:'string',enum:['beam','footing','section']},spanM:{type:'number'},elasticModulusGpa:{type:'number'},inertiaMm4:{type:'number'},axialLoadKn:{type:'number'},lengthM:{type:'number'},widthM:{type:'number'},heightM:{type:'number'},allowableKpa:{type:'number'},sectionWidthMm:{type:'number'},sectionHeightMm:{type:'number'}},required:['page']}
+ prepare_studio_form:{description:'Suggest prefill of supported Studio beam, footing and section fields after explicit user confirmation; never executes or saves.',properties:{page:{type:'string',enum:['beam','footing','section','rebar','earth']},diameterMm:{type:'number'},barLengthM:{type:'number'},quantity:{type:'number'},wastePercent:{type:'number'},stationRows:{type:'string'},spanM:{type:'number'},elasticModulusGpa:{type:'number'},inertiaMm4:{type:'number'},axialLoadKn:{type:'number'},lengthM:{type:'number'},widthM:{type:'number'},heightM:{type:'number'},allowableKpa:{type:'number'},sectionWidthMm:{type:'number'},sectionHeightMm:{type:'number'}},required:['page']}
 };
 const tools=Object.entries(specs).map(([name,v])=>({type:'function',function:{name,description:v.description,parameters:{type:'object',properties:v.properties,required:v.required,additionalProperties:false}}}));
 const pageAllowed={
@@ -109,10 +109,13 @@ function act(name,args){
   const page=String(args.page),fields={},mapping={
    beam:[['beamL','spanM',.1,200],['beamE','elasticModulusGpa',.001,1000],['beamI','inertiaMm4',1,1e18]],
    footing:[['footP','axialLoadKn',0,1e9],['footL','lengthM',.001,10000],['footB','widthM',.001,10000],['footH','heightM',0,10000],['footQ','allowableKpa',.001,1e9]],
-   section:[['secB','sectionWidthMm',.001,100000],['secH','sectionHeightMm',.001,100000]]
+   section:[['secB','sectionWidthMm',.001,100000],['secH','sectionHeightMm',.001,100000]],
+   rebar:[['barDia','diameterMm',1,100],['barLen','barLengthM',.001,1000],['barQty','quantity',1,100000],['barWaste','wastePercent',0,100]],
+   earth:[]
   };
   if(!Object.hasOwn(mapping,page))throw Error('Studio page unsupported.');
   for(const [input,key,min,max] of mapping[page])if(args[key]!==undefined)fields[input]=num(args[key],key,{min,max});
+  if(page==='earth'&&args.stationRows!==undefined){const v=String(args.stationRows||'').trim();if(v.length>1500||!/^\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?(?:\s*\n\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?)*$/.test(v))throw Error('صيغة المحطات غير صحيحة؛ استخدم: المحطة, الحفر, الردم في كل سطر.');fields.stations=v;}
   if(!Object.keys(fields).length)throw Error('No Studio form values provided.');
   return {type:'prefill',target:'studio',page,fields,label:'تعبئة '+page};
  }
@@ -214,7 +217,7 @@ module.exports=async function(req,res){
   const system=[
    'أنت مساعد Civil AI للهندسة المدنية. أجب بلغة المستخدم العربية أو الإنجليزية بدقة ووضوح. المعرفة بالبرنامج من الدليل المرفق لا من التخمين.',
    'عند حل مسألة رقمية مدعومة استدع أداة الحساب أولاً ثم اشرح النتائج والمعادلات والوحدات والافتراضات والقيود. لا تخترع مدخلات ناقصة أو حدود أكواد؛ اسأل عند الحاجة.',
-   'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح القسم، وprepare_main_form لتعبئة قيم الحاسبات الرئيسية وprepare_studio_form لتعبئة الحاسبات المتقدمة. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير مشاريعه من تلقاء نفسك.',
+   'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح أي صفحة مدعومة، وprepare_main_form لتعبئة حاسبات الصفحة الرئيسية وprepare_studio_form لتعبئة الكمرات والقطاعات والقواعد وحديد التسليح والحفر والردم. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير المشاريع من تلقاء نفسك. استخدم أدوات الحساب المعتمدة للمسائل المدعومة، وقدم تعبئة الحاسبة كإجراء مقترح فقط.',
    'لا تدعِ القيام بتحليل FEM أو تنفيذ Robot أو قراءة ملف DWG إن لم تنفذ أدوات موثوقة. الصورة يمكن وصفها دون اختلاق الأبعاد. تصميم الخلطة الخرسانية وكود البناء يحتاجان مراجعة مهندس. لا تختلق مصادر.',
    'إن كانت المسألة خارج نطاق الحاسبات الرقمية فقدم منهج الحل وتحقق من الأبعاد ومعلومات التصميم، ولا تدع الفحص المبدئي فحصاً معتمداً.',
    'النموذج الخارجي يختار نموذجاً مجانياً فقط دون تحويل إلى نموذج مدفوع احتياطياً. الإجابات الحرة قد تكون غير دقيقة؛ استخدم الأدوات الحسابية للنتائج المدعومة.',
