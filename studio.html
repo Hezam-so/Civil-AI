@@ -21,7 +21,8 @@
   <div class="brand"><div class="brand-logo">CA</div><div><b>CIVIL AI <span style="color:var(--aqua)">STUDIO</span></b><small>Engineering Intelligence · v2.0</small></div></div>
   <div class="side-label" data-i18n="workspace">مساحة العمل</div>
   <nav class="nav" id="nav">
-    <button data-page="home" class="active"><span class="nicon">⌂</span><span data-i18n="navHome">نظرة عامة</span></button>
+    <button data-page="assistant"><span class="nicon">✦</span><span data-i18n="navAI">المساعد الذكي</span></button>
+<button data-page="home" class="active"><span class="nicon">⌂</span><span data-i18n="navHome">نظرة عامة</span></button>
     <button data-page="beam"><span class="nicon">⌁</span><span data-i18n="navBeam">تحليل الكمرات</span></button>
     <button data-page="section"><span class="nicon">▣</span><span data-i18n="navSection">خصائص القطاعات</span></button>
     <button data-page="footing"><span class="nicon">▤</span><span data-i18n="navFoot">الأساسات والتربة</span></button>
@@ -30,10 +31,10 @@
 <a href="land-area.html" class="studio-land-link" style="display:block;padding:11px 14px;margin:5px 0 8px;border-radius:10px;border:1px solid #348d8e;background:#143a45;color:#b7faf0;text-decoration:none;font-weight:650">▱ حاسبة مساحة الأراضي اليمنية والعالمية</a>
 <a href="irregular-land.html" style="display:block;padding:11px 14px;margin:5px 0 8px;border-radius:10px;border:1px solid #348d8e;background:#143a45;color:#b7faf0;text-decoration:none;font-weight:650">△ حساب مساحة أرض غير منتظمة</a>
 <a href="satellite-land.html" style="display:block;padding:11px 14px;margin:5px 0 8px;border-radius:10px;border:1px solid #348d8e;background:#143a45;color:#b7faf0;text-decoration:none;font-weight:650">🛰️ قياس الأرض من الأقمار الصناعية</a>
-    <a href="irregular-land.html" style="display:block;padding:11px 14px;margin:5px 0 8px;border-radius:10px;border:1px solid #4587a5;background:#15394f;color:#baf2ff;text-decoration:none;font-weight:650">⬡ مساحة الأرض غير المنتظمة</a>
+    
     <button data-page="files"><span class="nicon">▦</span><span data-i18n="navFiles">مكتبة الملفات</span></button>
     <a href="upload.html" class="studio-upload-link" style="display:block;padding:11px 14px;margin:5px 0 8px;border-radius:10px;border:1px solid #2779a2;background:#123d5a;color:#c7f2ff;text-decoration:none;font-weight:650">⇧ إرفاق المخططات الهندسية</a>
-    <button data-page="assistant"><span class="nicon">✦</span><span data-i18n="navAI">المساعد الذكي</span></button>
+    
   </nav>
   <div class="aside-foot">🔒 <span data-i18n="localMsg">الملفات تُحفظ محليًا في هذا المتصفح فقط.</span><p><a href="/" data-i18n="backHome">← العودة إلى Civil AI</a></p></div>
 </aside>
@@ -44,13 +45,13 @@
  <div class="section-title"><h2 data-i18n="overview">مؤشرات المختبر</h2></div>
  <div class="cards"><div class="card"><div class="icon">⌁</div><strong>6</strong><p data-i18n="metricsTools">وحدات حساب هندسي وملفات</p></div><div class="card"><div class="icon">▦</div><strong id="fileCount">0</strong><p data-i18n="metricsFiles">ملفات محفوظة محليًا</p></div><div class="card"><div class="icon">✦</div><strong id="aiBadge">—</strong><p data-i18n="metricsAI">حالة المساعد الحقيقي</p></div><div class="card"><div class="icon">⎙</div><strong>PDF</strong><p data-i18n="metricsPrint">تقارير قابلة للطباعة</p></div></div>
  <div class="section-title"><h2 data-i18n="openTool">افتح أداة هندسية</h2><p data-i18n="instant">حساب مباشر في متصفحك</p></div>
- <div class="tool-grid">
+ <div class="tool-grid"><a href="assistant.html" class="tool-card studio-ai-entry" style="text-decoration:none"><div class="icon" aria-hidden="true">✦</div><h3>المساعد الهندسي الذكي</h3><p>ابدأ بالذكاء الهندسي: شرح المسائل، الحسابات الموثوقة، والمساعدة في استخدام البرنامج.</p></a>
   <button class="tool-card" data-go="beam"><div class="icon">⌁</div><h3 data-i18n="navBeam">تحليل الكمرات</h3><p data-i18n="beamDesc">أحمال نقطية وموزعة، قص وعزم وترخيم تقريبي.</p></button>
   <button class="tool-card" data-go="section"><div class="icon">▣</div><h3 data-i18n="navSection">خصائص القطاعات</h3><p data-i18n="secDesc">المساحة والعطالة ومعامل المقطع وإجهاد الانحناء.</p></button>
   <button class="tool-card" data-go="footing"><div class="icon">▤</div><h3 data-i18n="navFoot">الأساسات والتربة</h3><p data-i18n="footDesc">فحص أولي لضغط التربة لقاعدة سطحية.</p></button>
   <a href="irregular-land.html" class="tool-card" style="text-decoration:none;color:inherit"><div class="icon">⬡</div><h3>حساب الأرض غير المنتظمة</h3><p>إحداثيات الزوايا، رسم الحدود، المثلثات وحساب المساحات.</p></a>
   <a href="land-area.html" class="tool-card" style="text-decoration:none;color:inherit"><div class="icon">▱</div><h3>حاسبة مساحة الأراضي</h3><p>وحدات اليمن والعالم والتحويل بين اللبن والقصب والمعادات والمتر والهكتار والفدان.</p></a>
-<a href="irregular-land.html" class="tool-card" style="text-decoration:none;color:inherit"><div class="icon">△</div><h3>مساحة أرض غير منتظمة</h3><p>إحداثيات وزوايا ومثلثات وتقرير مساحي مبسط.</p></a>
+
 <a href="satellite-land.html" class="tool-card" style="text-decoration:none;color:inherit"><div class="icon">🛰️</div><h3>قياس أرض عبر الخريطة</h3><p>حدد زوايا الأرض من الصور الفضائية واحسب المساحة والمحيط.</p></a>
   <button class="tool-card" data-go="earth"><div class="icon">▱</div><h3 data-i18n="navEarth">الحفر والردم</h3><p data-i18n="earthDesc">كميات الحفر والردم بطريقة متوسط المساحات.</p></button>
   <button class="tool-card" data-go="rebar"><div class="icon">≋</div><h3 data-i18n="navRebar">حصر حديد التسليح</h3><p data-i18n="rebarDesc">جدول قص أولي، أطوال وأوزان وهالك.</p></button>
