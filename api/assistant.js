@@ -8,8 +8,8 @@ const {get}=require('@vercel/blob');
 const knowledge=require('./civil-knowledge');
 const advanced=require('./civil-advanced');
 const localAssistant=require('./civil-free-local');
-const FREE_MODELS=new Set(['inclusionai/ling-3.0-flash-vl-free','reflection/beam-free']);
-const MODEL=FREE_MODELS.has(process.env.CIVIL_AI_AI_MODEL)?process.env.CIVIL_AI_AI_MODEL:'inclusionai/ling-3.0-flash-vl-free'; // Never select a paid model automatically
+const FREE_MODELS=new Set(['inclusionai/ling-3.0-tiny-free']);
+const MODEL=FREE_MODELS.has(process.env.CIVIL_AI_AI_MODEL)?process.env.CIVIL_AI_AI_MODEL:'inclusionai/ling-3.0-tiny-free'; // Verified free text/tool model; no paid model routing.
 const ttl=14*86400;
 const respond=(res,status,data)=>res.status(status).json(data);
 const num=(v,label,{min=0,max=1e9,zero=true}={})=>{
@@ -236,7 +236,9 @@ module.exports=async function(req,res){
    'صفحات الموقع: '+guide,
    'الصفحات المتصلة بالسؤال والحدود: '+related
   ].join('\n');
-  const content=image?[{type:'text',text:question},{type:'image_url',image_url:{url:image,detail:'low'}}]:question;
+  // The free model is text-only: do not claim to analyze an uploaded image.
+  if(image){const response=offlineAnswer(question,'image-not-supported-free-model');response.answer='النموذج المجاني الحالي لا يدعم تحليل الصور؛ لم أفحص الصورة المرفقة. يمكنك كتابة الأبعاد أو وصف الشكل نصيًا.\n'+response.answer;return respond(res,200,response)}
+  const content=question;
   const messages=[{role:'system',content:system},...history,{role:'user',content}];
   const calculations=[],actions=[];
   let answer='';
