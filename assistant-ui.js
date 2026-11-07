@@ -103,12 +103,12 @@
    const file=$('attachment').files[0];
    const attachmentDataUrl=file?await toDataURL(file):undefined;
    const result=await api({operation:'chat',question:q,aiMode:$('assistantMode').value,history:history.slice(-10),...(attachmentDataUrl?{attachmentDataUrl}:{})});
-   pending.textContent=(result.mode==='local'?'[مساعد هندسي محلي]\n':'')+(result.answer||'لم أستلم جوابًا.');
+   pending.textContent=(result.mode==='local'?'[مساعد هندسي محلي]\n':result.provider==='openrouter'?'[مساعد ذكاء اصطناعي خارجي]\n':'')+(result.answer||'لم أستلم جوابًا.');
    if(result.cloudUnavailable){
     $('assistantMode').value='local';
     $('aiStatus').textContent=result.gatewayIssue==='access-denied'
-      ?'الاتصال بالنموذج السحابي مرفوض (403)؛ المساعد الهندسي المحلي يعمل.'
-      :'النموذج السحابي غير متاح مؤقتًا؛ المساعد الهندسي المحلي يعمل.';
+      ?'رفض مزوّد '+(result.cloudProvider==='openrouter'?'OpenRouter':'Vercel AI Gateway')+' الاتصال (403)؛ المساعد المحلي متاح.'
+      :'تعذر اتصال مزوّد '+(result.cloudProvider==='openrouter'?'OpenRouter':'Vercel')+'؛ المساعد المحلي متاح.';
     $('assistantModeHint').textContent='تحول المساعد للوضع المحلي تلقائيًا بعد فشل اتصال السحابة. يمكنك اختيار الوضع السحابي مرة أخرى لإعادة المحاولة. لا توجد نماذج مدفوعة احتياطية.';
    }
    const group=document.createElement('div');outputResult(group,null,result.calculations,result.actions);
@@ -127,8 +127,9 @@
    const response=await fetch('/api/assistant',{method:'GET',cache:'no-store',credentials:'same-origin'});
    if(!response.ok)throw Error('الخدمة غير متاحة');
    const info=await response.json();
-   $('aiStatus').textContent=info.enabled?'اتصال النموذج السحابي مُهيّأ لكنه غير مؤكد · '+info.model+' · مساعد محلي متاح':'مساعد محلي مجاني متاح؛ النموذج السحابي غير مُهيأ';
-   if(!info.enabled)$('chatHint').textContent+=' وضع الذكاء الاصطناعي الحر غير مفعّل حاليًا، لكن الحسابات والأوامر البسيطة تعمل.';
+   $('aiStatus').textContent=info.providerMessage|| (info.enabled?'المزوّد الخارجي مهيأ ولم يتم اختبار طلب فعلي.':'المساعد المحلي متاح، والمزوّد الخارجي يحتاج إعدادًا.');
+   if(info.openrouterConfigured)$('assistantModeHint').textContent='تم إعداد OpenRouter مع وضع النموذج المجاني فقط. تعتمد الإجابات الخارجية على نجاح الاتصال وحدود النموذج المجاني. يطلب المساعد موافقتك قبل تعديل النماذج أو الانتقال.';
+   if(!info.enabled)$('chatHint').textContent+=' لتفعيل إجابات الذكاء الاصطناعي الخارجية يلزم إضافة مفتاح OPENROUTER_API_KEY في إعدادات خادم الموقع. لا تضع المفتاح في الدردشة.';
   }catch(e){$('aiStatus').textContent='فشل الاتصال بخادم المساعد — '+e.message}
  })();
 })();
