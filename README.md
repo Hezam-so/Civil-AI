@@ -53,3 +53,19 @@ The assistant has an explicit, source-backed guide to the Civil AI tools and pag
 Material quantities use illustrative assumptions; they are not an approved concrete mix design. Beam deflection is linear elastic for simplified boundary/loading assumptions, and land measurements depend on surveyed coordinates. The assistant cannot autonomously read users' locally stored files, run Autodesk Robot/FEM, verify live building-code compliance, or approve structural designs. Validate critical results independently.
 
 To test deterministic tools locally with Node.js: `node tests/civil-advanced.test.js`.
+
+
+## External AI assistant (OpenRouter free models)
+
+Civil AI now supports an optional external chat provider on the backend. To enable it:
+
+1. Create an API key at https://openrouter.ai/settings/keys using your own OpenRouter account.
+2. In Vercel → civilai2026 → Settings → Environment Variables, add **OPENROUTER_API_KEY** as a **secret** for **Production**. Do not paste the key into chat or commit it to GitHub.
+3. Redeploy the production branch and open `/assistant.html`. Select the external assistant option and test a normal question in a signed-in session.
+4. If you want to pin a listed $0 model with the `:free` suffix, optionally set `CIVIL_AI_OPENROUTER_MODEL`. Otherwise `openrouter/free` selects a free model automatically.
+
+The server refuses paid model IDs and doesn't send provider secrets to the browser. The site prompts for confirmation before navigation or filling supported calculator forms. This is **not** remote desktop control and cannot run arbitrary clicks, file deletion, or engineering programs. Saved projects and privately stored files are not provided to the model automatically.
+
+**Important:** OpenRouter free models have rate limits (at the time of this change, around 50 requests/day without purchased credits). Model availability and tool/vision support can vary; free models are not guaranteed always-on or unlimited. The old Vercel AI Gateway may return HTTP 403 if the team has not completed account verification; OpenRouter avoids that specific gateway but needs its own valid key. If neither provider works, deterministic local help remains available. This is not general-purpose AI.
+
+Owner workflow: verify a live external answer and a confirmed action end-to-end before publicly advertising the model as operational. Do not use model output alone for structural design decisions.

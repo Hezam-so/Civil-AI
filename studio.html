@@ -167,14 +167,19 @@ tr();renderLoads();renderBars();$('loadType').dispatchEvent(new Event('change'))
   if(!raw)return;
   sessionStorage.removeItem('civilai_confirmed_studio_prefill');
   const a=JSON.parse(raw);
-  if(!a||!['beam','footing','section'].includes(a.page)||requestedPage!==a.page
+  if(!a||!['beam','footing','section','rebar','earth'].includes(a.page)||requestedPage!==a.page
    ||typeof a.at!=='number'||a.at>Date.now()||Date.now()-a.at>300000||!a.fields||typeof a.fields!=='object')return;
   const limits={beamL:[.1,200],beamE:[1,300],beamI:[1,1e18],
    footP:[0,1e9],footL:[.1,10000],footB:[.1,10000],footH:[0,10000],footQ:[1,1e9],
-   secB:[1,100000],secH:[1,100000]};
-  const allowed={beam:['beamL','beamE','beamI'],footing:['footP','footL','footB','footH','footQ'],section:['secB','secH']};
+   secB:[1,100000],secH:[1,100000],barDia:[1,100],barLen:[.001,1000],barQty:[1,100000],barWaste:[0,100]};
+  const allowed={beam:['beamL','beamE','beamI'],footing:['footP','footL','footB','footH','footQ'],section:['secB','secH'],rebar:['barDia','barLen','barQty','barWaste'],earth:['stations']};
   for(const [id,value] of Object.entries(a.fields)){
-   if(!allowed[a.page].includes(id)||!Number.isFinite(value)||value<limits[id][0]||value>limits[id][1])continue;
+   if(!allowed[a.page].includes(id))continue;
+   if(id==='stations'){
+    if(typeof value==='string'&&value.length<=1500&&/^\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?(?:\s*\n\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?\s*,\s*\d+(?:\.\d+)?)*$/.test(value))$('stations').value=value;
+    continue;
+   }
+   if(!Number.isFinite(value)||value<limits[id][0]||value>limits[id][1])continue;
    const input=$(id);if(input)input.value=String(value);
   }
  }catch(e){console.warn('Studio assistant prefill could not be applied');}
