@@ -218,15 +218,20 @@ module.exports=async function(req,res){
    'أنت مساعد Civil AI للهندسة المدنية. أجب بلغة المستخدم العربية أو الإنجليزية بدقة ووضوح. المعرفة بالبرنامج من الدليل المرفق لا من التخمين.',
    'عند حل مسألة رقمية مدعومة استدع أداة الحساب أولاً ثم اشرح النتائج والمعادلات والوحدات والافتراضات والقيود. لا تخترع مدخلات ناقصة أو حدود أكواد؛ اسأل عند الحاجة.',
    'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح أي صفحة مدعومة، وprepare_main_form لتعبئة حاسبات الصفحة الرئيسية وprepare_studio_form لتعبئة الكمرات والقطاعات والقواعد وحديد التسليح والحفر والردم. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير المشاريع من تلقاء نفسك. استخدم أدوات الحساب المعتمدة للمسائل المدعومة، وقدم تعبئة الحاسبة كإجراء مقترح فقط.',
-   'لا تدعِ القيام بتحليل FEM أو تنفيذ Robot أو قراءة ملف DWG إن لم تنفذ أدوات موثوقة. الصورة يمكن وصفها دون اختلاق الأبعاد. تصميم الخلطة الخرسانية وكود البناء يحتاجان مراجعة مهندس. لا تختلق مصادر.',
+   'لا تدعِ القيام بتحليل FEM أو تنفيذ Robot أو قراءة ملف DWG إن لم تنفذ أدوات موثوقة. عند وصول صورة يمكنك وصف الظاهر فقط دون اختلاق أبعاد أو قراءات غير واضحة. تصميم الخلطة الخرسانية وكود البناء يحتاجان مراجعة مهندس. لا تختلق مصادر.',
    'إن كانت المسألة خارج نطاق الحاسبات الرقمية فقدم منهج الحل وتحقق من الأبعاد ومعلومات التصميم، ولا تدع الفحص المبدئي فحصاً معتمداً.',
    'النموذج الخارجي يختار نموذجاً مجانياً فقط دون تحويل إلى نموذج مدفوع احتياطياً. الإجابات الحرة قد تكون غير دقيقة؛ استخدم الأدوات الحسابية للنتائج المدعومة.',
    'صفحات الموقع: '+guide,
    'الصفحات المتصلة بالسؤال والحدود: '+related
   ].join('\n');
-  // The free model is text-only: do not claim to analyze an uploaded image.
-  if(image){const response=offlineAnswer(question,'image-not-supported-free-model',history);response.answer='النموذج المجاني الحالي لا يدعم تحليل الصور؛ لم أفحص الصورة المرفقة. يمكنك كتابة الأبعاد أو وصف الشكل نصيًا.\n'+response.answer;return respond(res,200,response)}
-  const content=question;
+  // Vision is only offered through OpenRouter's free router when explicitly configured.
+  // Uploaded images never go to the local fallback for automatic analysis.
+  if(image&&externalModels.preferred(req)!=='openrouter'){
+    const local=offlineAnswer(question,'image-provider-not-configured',history);
+    local.answer='لا تتوفر معالجة الصور دون ربط مزوّد OpenRouter خارجي؛ لم تُفحص الصورة.\n'+local.answer;
+    return respond(res,200,local);
+  }
+  const content=image?[{type:'text',text:question},{type:'image_url',image_url:{url:image,detail:'low'}}]:question;
   const messages=[{role:'system',content:system},...history,{role:'user',content}];
   const calculations=[],actions=[];
   let answer='';
@@ -256,7 +261,7 @@ module.exports=async function(req,res){
   }catch(e){
    console.warn('Civil AI external model unavailable; local fallback used:',String(e?.provider||'none'),Number(e?.providerStatus||0));
    const safe=offlineAnswer(question,'cloud-unavailable',history);safe.cloudUnavailable=true;safe.cloudProvider=e.provider||externalModels.preferred(req);safe.gatewayIssue=e.providerStatus===403?'access-denied':e.providerStatus===429?'rate-limited':e.providerStatus===402?'credits':e.providerStatus===401?'authentication':'unavailable';
-   if(image)safe.answer='النموذج السحابي المجاني غير متاح الآن؛ لم أتمكن من فحص الصورة.\n'+safe.answer;
+   if(image)safe.answer='تعذر تحليل الصورة بالمزوّد الخارجي؛ لم أتمكن من فحصها.\n'+safe.answer;
    return respond(res,200,safe);
   }
   if(!answer&&calculations.length)answer='هذه نتائج الأدوات الحسابية. تأكد من الفروض والوحدات قبل استخدامها في التصميم.';
