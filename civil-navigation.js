@@ -10,7 +10,7 @@
  }
  function toggle(){setTheme(getTheme()==='light'?'dark':'light')}
  function button(){const b=document.createElement('button');b.type='button';b.className='civil-theme-toggle';b.addEventListener('click',toggle);return b}
- function page(){const p=location.pathname;if(p.endsWith('studio.html'))return 'studio';if(p.endsWith('satellite-land.html'))return 'satellite';if(p.endsWith('assistant.html'))return 'assistant';return 'home'}
+ function page(){const p=location.pathname;if(p.endsWith('studio.html'))return 'studio';if(p.endsWith('satellite-land.html'))return 'satellite';if(p.endsWith('assistant.html'))return 'assistant';return null}
  function init(){
   if(!document.body||document.querySelector('.civil-global'))return;
   const path=location.pathname;
@@ -22,8 +22,15 @@
    const menu=document.createElement('nav');menu.setAttribute('aria-label','أقسام الموقع');
    for(const [url,label,key] of choices){const link=document.createElement('a');link.href=url;link.textContent=label;if(page()===key)link.setAttribute('aria-current','page');menu.append(link)}
    bar.append(name,menu,button());
-   const parent=document.querySelector('main .wrap, main .container, main, .main, .wrap, .container')||document.body;
+   const parent=document.querySelector('main .wrap, main .container, .main, .wrap, .container, main')||document.body;
    parent.prepend(bar);
+   // One shared route appears once; keep page-specific controls and tools.
+   const duplicateMenuLinks=document.querySelectorAll('.links a, .navlinks a, header nav a');
+   duplicateMenuLinks.forEach(a=>{try{
+    const u=new URL(a.getAttribute('href'),location.href);
+    if(u.origin===location.origin&&choices.some(([route])=>u.pathname===route&&u.search===''))a.remove();
+   }catch{}});
+
   }
   setTheme(getTheme());
  }
