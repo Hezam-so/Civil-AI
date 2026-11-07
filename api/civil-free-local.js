@@ -38,7 +38,7 @@ const catalog={
 };
 function topics(q){
  const ids=[];const add=id=>{if(!ids.includes(id))ids.push(id);};
- if(/قطعه|ارض|اراضي|ارضيه|parcel|plot|land/.test(q)){
+ if(/(?:^|[\s،,.:])(?:قطعه|ارض|الارض|اراضي|الاراضي|ارضيه|parcel|plot|land)(?:\s|$|[؟?!،,.])/.test(q)){
   if(/خريط|قمر|فضائي|صور|satellite|map/.test(q))add('satellite');
   else if(/لبن|قصب|معاد|فدان|هكتار|وحد/.test(q))add('landarea');
   else if(/غير منتظم|احداثي|زوايا|مضلع|مثلث/.test(q))add('irregular');
