@@ -102,8 +102,8 @@
   try{
    const file=$('attachment').files[0];
    const attachmentDataUrl=file?await toDataURL(file):undefined;
-   const result=await api({operation:'chat',question:q,history:history.slice(-10),...(attachmentDataUrl?{attachmentDataUrl}:{})});
-   pending.textContent=result.answer||'لم أستلم جوابًا.';
+   const result=await api({operation:'chat',question:q,aiMode:$('assistantMode').value,history:history.slice(-10),...(attachmentDataUrl?{attachmentDataUrl}:{})});
+   pending.textContent=(result.mode==='local'?'[مساعد محلي مجاني]\n':'')+(result.answer||'لم أستلم جوابًا.');
    const group=document.createElement('div');outputResult(group,null,result.calculations,result.actions);
    if(group.childNodes.length)outputs.prepend(group);
    history.push({role:'user',content:q},{role:'assistant',content:pending.textContent});
@@ -120,7 +120,7 @@
    const response=await fetch('/api/assistant',{method:'GET',cache:'no-store',credentials:'same-origin'});
    if(!response.ok)throw Error('الخدمة غير متاحة');
    const info=await response.json();
-   $('aiStatus').textContent=info.enabled?'نموذج مجاني · '+info.model+' · بلا حد يومي برمجي (وفق حدود المزود)':'الحاسبات الهندسية متاحة · يلزم تفعيل Vercel AI Gateway للأسئلة الحرة';
+   $('aiStatus').textContent=info.enabled?'نموذج مجاني سحابي عند التوفر · '+info.model+' · حسابات محلية مجانية':'الحاسبات الهندسية والمساعد المحلي متاحان دون نموذج سحابي';
    if(!info.enabled)$('chatHint').textContent+=' وضع الذكاء الاصطناعي الحر غير مفعّل حاليًا، لكن الحسابات والأوامر البسيطة تعمل.';
   }catch(e){$('aiStatus').textContent='فشل الاتصال بخادم المساعد — '+e.message}
  })();
