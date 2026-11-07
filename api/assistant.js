@@ -8,6 +8,7 @@ const {get}=require('@vercel/blob');
 const knowledge=require('./civil-knowledge');
 const advanced=require('./civil-advanced');
 const localAssistant=require('./civil-free-local');
+const externalModels=require('./civil-model-providers');
 const FREE_MODELS=new Set(['inclusionai/ling-3.0-tiny-free']);
 const MODEL=FREE_MODELS.has(process.env.CIVIL_AI_AI_MODEL)?process.env.CIVIL_AI_AI_MODEL:'inclusionai/ling-3.0-tiny-free'; // Verified free text/tool model; no paid model routing.
 const ttl=14*86400;
@@ -180,28 +181,12 @@ function extractNavigation(question){
 }
 function offlineAnswer(question,reason,history){return localAssistant.fallback(question,reason,history)}
 async function askModel(messages,req){
- const token=gatewayToken(req);
- const response=await fetch('https://ai-gateway.vercel.sh/v1/chat/completions',{
-  method:'POST',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},
-  signal:AbortSignal.timeout(25000),
-  body:JSON.stringify({model:MODEL,messages,tools,tool_choice:'auto',max_completion_tokens:3000})
- });
- if(!response.ok){
-  console.error('Civil AI gateway status',response.status);
-  const message=response.status===402?'رصيد AI Gateway غير كافٍ. تحقق من الرصيد وحدود الخطة في Vercel.':
-    response.status===401||response.status===403?'AI Gateway غير مصرح له بالاتصال. افحص إعداداته في Vercel.':
-    response.status===429?'خدمة الذكاء الاصطناعي مزدحمة أو تجاوزت الحد. جرّب لاحقًا.':'تعذر اتصال النموذج (HTTP '+response.status+').';
-  throw Object.assign(Error(message),{status:503,gatewayStatus:response.status});
- }
- const result=await response.json();
- const item=result.choices?.[0]?.message;
- if(!item)throw Error('لم يُرجع النموذج إجابة.');
- return item;
+ return externalModels.completion(messages,tools,req);
 }
 module.exports=async function(req,res){
  res.setHeader('Cache-Control','private,no-store');
  res.setHeader('X-Content-Type-Options','nosniff');
- if(req.method==='GET')return respond(res,200,{enabled:authReady(req),cloudConfigured:authReady(req),cloudVerified:false,model:authReady(req)?MODEL:null,calculators:true,localFree:true,freeCloudSubjectToAvailability:true,actionsRequireConfirmation:true,dailyAILimit:null});
+ if(req.method==='GET'){const status=externalModels.status(req);return respond(res,200,{enabled:status.available,cloudConfigured:status.available,cloudVerified:status.providerVerified,provider:status.configuredProvider,providerMessage:status.message,openrouterConfigured:status.openrouterConfigured,model:status.model,calculators:true,localFree:true,freeCloudSubjectToAvailability:true,actionsRequireConfirmation:true,dailyAILimit:null});}
  if(req.method!=='POST')return respond(res,405,{error:'Method not allowed'});
  if(!secureOrigin(req))return respond(res,403,{error:'يجب إرسال الطلب من الموقع الأصلي.'});
  if(Number(req.headers['content-length']||0)>4200000)return respond(res,413,{error:'حجم الطلب كبير جدًا.'});
@@ -221,8 +206,8 @@ module.exports=async function(req,res){
   if(image&&(!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(image)||image.length>3900000))
    return respond(res,415,{error:'المرفقات المدعومة حاليًا: صورة PNG أو JPEG أو WebP لا تتجاوز 2.8 MB. لا ترفع PDF هنا.'});
   if(input.aiMode==='local')return respond(res,200,offlineAnswer(question,'local-selected',input.history));
-  if(!authReady(req))return respond(res,200,offlineAnswer(question,'gateway-not-ready',input.history));
-  // Cloud requests use allowlisted no-price models only, never a paid fallback.
+  if(!externalModels.preferred(req))return respond(res,200,offlineAnswer(question,'cloud-not-configured',input.history));
+  // External provider uses explicitly free models only; never selects a paid fallback.
   const history=Array.isArray(input.history)?input.history.slice(-10).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string').map(m=>({role:m.role,content:m.content.slice(0,2500)})):[];
   const guide=knowledge.pages.map(p=>p.name+' @ '+p.route+' — '+p.summary).join('\n');
   const related=knowledge.lookup(question).map(p=>p.name+': '+p.summary+' ؛ حدود: '+p.limits).join('\n');
@@ -232,7 +217,7 @@ module.exports=async function(req,res){
    'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح القسم، وprepare_main_form لتعبئة قيم الحاسبات الرئيسية وprepare_studio_form لتعبئة الحاسبات المتقدمة. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير مشاريعه من تلقاء نفسك.',
    'لا تدعِ القيام بتحليل FEM أو تنفيذ Robot أو قراءة ملف DWG إن لم تنفذ أدوات موثوقة. الصورة يمكن وصفها دون اختلاق الأبعاد. تصميم الخلطة الخرسانية وكود البناء يحتاجان مراجعة مهندس. لا تختلق مصادر.',
    'إن كانت المسألة خارج نطاق الحاسبات الرقمية فقدم منهج الحل وتحقق من الأبعاد ومعلومات التصميم، ولا تدع الفحص المبدئي فحصاً معتمداً.',
-   'الذكاء يستخدم نموذجاً مجانياً؛ لا تستخدم نموذجاً مدفوعاً احتياطياً.',
+   'النموذج الخارجي يختار نموذجاً مجانياً فقط دون تحويل إلى نموذج مدفوع احتياطياً. الإجابات الحرة قد تكون غير دقيقة؛ استخدم الأدوات الحسابية للنتائج المدعومة.',
    'صفحات الموقع: '+guide,
    'الصفحات المتصلة بالسؤال والحدود: '+related
   ].join('\n');
@@ -244,7 +229,8 @@ module.exports=async function(req,res){
   let answer='';
   try{
   for(let turn=0;turn<4;turn++){
-   const reply=await askModel(messages,req);
+   const completion=await askModel(messages,req);
+   const reply=completion.message;
    if(Array.isArray(reply.tool_calls)&&reply.tool_calls.length){
     const calls=reply.tool_calls.slice(0,8);
     messages.push({role:'assistant',content:reply.content||null,tool_calls:calls});
@@ -266,14 +252,14 @@ module.exports=async function(req,res){
   }
   }catch(e){
    console.warn('Civil AI free gateway unavailable; local fallback used:',String(e?.status||e?.name||'error'));
-   const safe=offlineAnswer(question,'cloud-unavailable',history);safe.cloudUnavailable=true;safe.gatewayIssue=e.gatewayStatus===403?'access-denied':e.gatewayStatus===429?'rate-limited':e.gatewayStatus===402?'credits':e.gatewayStatus===401?'authentication':'unavailable';
+   const safe=offlineAnswer(question,'cloud-unavailable',history);safe.cloudUnavailable=true;safe.cloudProvider=e.provider||externalModels.preferred(req);safe.gatewayIssue=e.providerStatus===403?'access-denied':e.providerStatus===429?'rate-limited':e.providerStatus===402?'credits':e.providerStatus===401?'authentication':'unavailable';
    if(image)safe.answer='النموذج السحابي المجاني غير متاح الآن؛ لم أتمكن من فحص الصورة.\n'+safe.answer;
    return respond(res,200,safe);
   }
   if(!answer&&calculations.length)answer='هذه نتائج الأدوات الحسابية. تأكد من الفروض والوحدات قبل استخدامها في التصميم.';
   if(!answer&&actions.length)answer='اقتراحات للتحكم في Civil AI؛ اضغط على الزر للتأكيد قبل تطبيقها.';
   if(!answer)answer='لم أتمكن من إكمال الرد. جرّب سؤالًا أكثر تحديدًا.';
-  return respond(res,200,{answer:answer.slice(0,9000),calculations,actions,mode:'ai',model:MODEL});
+  return respond(res,200,{answer:answer.slice(0,9000),calculations,actions,mode:'ai',model:externalModels.status(req).model,provider:externalModels.preferred(req)});
  }catch(e){
   console.error('Civil AI assistant error:',String(e.name||'Error'));
   return respond(res,e.status||500,{error:e.status?e.message:'تعذر تشغيل المساعد الآن. تحقق من اتصال AI Gateway أو جرّب الحاسبة الهندسية.'});
