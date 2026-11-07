@@ -16,7 +16,8 @@
   const query=arabicNormalize(search.value.trim());
   let visible=0;
   for(const card of cards){
-   const blob=arabicNormalize([card.innerText,card.dataset.search||'',...card.querySelectorAll('[data-menu-ar]')].join(' '));
+   const labels=[...card.querySelectorAll('[data-menu-ar]')].flatMap(el=>[el.dataset.menuAr||'',el.dataset.menuEn||'']);
+   const blob=arabicNormalize([card.textContent,card.dataset.search||'',...labels].join(' '));
    const matchCategory=category==='all'||card.dataset.group===category;
    const show=matchCategory&&(!query||blob.includes(query));
    card.hidden=!show;if(show)visible++;
