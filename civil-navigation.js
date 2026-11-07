@@ -3,7 +3,7 @@
  'use strict';
  const KEY='civilai-site-theme-v2';
  const choices=[['/','⌂ الرئيسية','home'],['/studio.html','⌁ المختبر','studio'],['/satellite-land.html','◈ قياس الخرائط','satellite'],['/assistant.html','✦ المساعد','assistant']];
- function getTheme(){try{return localStorage.getItem(KEY)||'dark'}catch{return 'dark'}}
+ function getTheme(){try{return localStorage.getItem(KEY)||'light'}catch{return 'light'}}
  function setTheme(value){const theme=value==='light'?'light':'dark';document.documentElement.setAttribute('data-civil-theme',theme);
   try{localStorage.setItem(KEY,theme)}catch{}
   document.querySelectorAll('.civil-theme-toggle').forEach(btn=>{btn.textContent=theme==='light'?'☾ الوضع الداكن':'☼ الوضع الفاتح';btn.setAttribute('aria-label',theme==='light'?'تفعيل الوضع الداكن':'تفعيل الوضع الفاتح')});
