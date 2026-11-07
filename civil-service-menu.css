@@ -108,3 +108,11 @@ html[data-civil-theme="light"] #home .portal-empty{color:#4e6c80;border-color:#b
  #nav .sidefoot{display:none}
 }
 @media(prefers-reduced-motion:reduce){#home .portal-card{transition:none}}
+
+/* Concise sidebar: the card grid is the complete feature directory. */
+.nav-quick-label{font-size:11px;color:#7e9cb4;padding:7px 13px 12px;font-weight:750;letter-spacing:.3px}
+.sidebar .nav-ai-first{background:linear-gradient(100deg,#144663,#123e5e);color:#c6f3ff;border:1px solid #326e8b;font-weight:800}
+.sidebar .nav-ai-first:hover{background:#185a7b;color:#fff}
+html[data-civil-theme="light"] .nav-quick-label{color:#537589}
+html[data-civil-theme="light"] .sidebar .nav-ai-first{background:#cbeaf7;color:#075c7b;border:1px solid #97cadd}
+@media(max-width:600px){.sidebar .nav-quick-label{display:none}}
