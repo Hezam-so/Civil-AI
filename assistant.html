@@ -60,6 +60,7 @@ hr{border:0;border-top:1px solid var(--edge);margin:20px 0}
 </div>
 <div class="chat-log" id="chatLog" aria-live="polite"><div class="msg ai">مرحبًا! أنا مساعد Civil AI. اكتب سؤالك بالعربية أو الإنجليزية. للمسائل العددية اختر الحاسبة الموثوقة أيضًا. النتائج المبدئية ليست بديلاً عن مراجعة مهندس متخصص.</div></div>
 <form class="chat-form" id="chatForm">
+<label for="assistantMode">طريقة المساعدة</label><select id="assistantMode" aria-label="وضع المساعد"><option value="cloud">✦ ذكاء مجاني سحابي عند التوفر + الحسابات الهندسية</option><option value="local">⌁ مجاني محلي دائمًا: حسابات دقيقة ودليل البرنامج</option></select><p class="small" id="assistantModeHint">المحادثة الذكية تعتمد على توفر النموذج المجاني لدى مزوده؛ عند تعذره يُستخدم المساعد المحلي تلقائيًا، دون التحويل إلى نموذج مدفوع.</p>
 <label for="question">السؤال أو التعليمات</label><textarea id="question" maxlength="4000" required placeholder="مثلاً: حل كمرة بسيطة الارتكاز طولها 8 متر وتحت حمل موزع 12 kN/m مع شرح الحل"></textarea>
 <label for="attachment">إرفاق صورة للمسألة (اختياري، حتى 2.8 MB)</label>
 <input type="file" id="attachment" accept="image/png,image/jpeg,image/webp">
