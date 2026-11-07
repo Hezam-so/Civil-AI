@@ -7,6 +7,7 @@ const crypto=require('node:crypto');
 const {get}=require('@vercel/blob');
 const knowledge=require('./civil-knowledge');
 const advanced=require('./civil-advanced');
+const localAssistant=require('./civil-free-local');
 const FREE_MODELS=new Set(['inclusionai/ling-3.0-flash-vl-free','reflection/beam-free']);
 const MODEL=FREE_MODELS.has(process.env.CIVIL_AI_AI_MODEL)?process.env.CIVIL_AI_AI_MODEL:'inclusionai/ling-3.0-flash-vl-free'; // Never select a paid model automatically
 const ttl=14*86400;
@@ -177,11 +178,7 @@ function extractNavigation(question){
  for(const [re,target,page] of options)if(re.test(question))return [{type:'navigate',target,page,label:'فتح '+page}];
  return [];
 }
-function offlineAnswer(question){
- const moves=extractNavigation(question);
- const msg=moves.length?'يمكنني فتح القسم المطلوب بعد موافقتك.':'يمكنني تنفيذ حسابات دقيقة بالأدوات المضمنة مثل ردود الأفعال والعزم للكمرة البسيطة، حجم الخرسانة، ضغط القاعدة المبدئي، حديد التسليح، خصائص القطاع وتحويل الوحدات.';
- return {answer:msg+' لكن التحليل اللغوي الحر يحتاج تفعيل اتصال نموذج الذكاء الاصطناعي عبر Vercel AI Gateway. استخدم زر «حاسبة هندسية» لإدخال أرقام المسألة بصورة منظمة، أو اختر أداة الحساب.',actions:moves,calculations:[],mode:'tools-only'};
-}
+function offlineAnswer(question,reason){return localAssistant.fallback(question,reason)}
 async function askModel(messages,req){
  const token=gatewayToken(req);
  const response=await fetch('https://ai-gateway.vercel.sh/v1/chat/completions',{
@@ -204,7 +201,7 @@ async function askModel(messages,req){
 module.exports=async function(req,res){
  res.setHeader('Cache-Control','private,no-store');
  res.setHeader('X-Content-Type-Options','nosniff');
- if(req.method==='GET')return respond(res,200,{enabled:authReady(req),model:authReady(req)?MODEL:null,calculators:true,actionsRequireConfirmation:true,dailyAILimit:null});
+ if(req.method==='GET')return respond(res,200,{enabled:authReady(req),model:authReady(req)?MODEL:null,calculators:true,localFree:true,freeCloudSubjectToAvailability:true,actionsRequireConfirmation:true,dailyAILimit:null});
  if(req.method!=='POST')return respond(res,405,{error:'Method not allowed'});
  if(!secureOrigin(req))return respond(res,403,{error:'يجب إرسال الطلب من الموقع الأصلي.'});
  if(Number(req.headers['content-length']||0)>4200000)return respond(res,413,{error:'حجم الطلب كبير جدًا.'});
@@ -223,7 +220,9 @@ module.exports=async function(req,res){
   const image=String(input.attachmentDataUrl||'');
   if(image&&(!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(image)||image.length>3900000))
    return respond(res,415,{error:'المرفقات المدعومة حاليًا: صورة PNG أو JPEG أو WebP لا تتجاوز 2.8 MB. لا ترفع PDF هنا.'});
-  if(!authReady(req))return respond(res,200,offlineAnswer(question));
+  if(input.aiMode==='local')return respond(res,200,offlineAnswer(question,'local-selected'));
+  if(!authReady(req))return respond(res,200,offlineAnswer(question,'gateway-not-ready'));
+  // Cloud requests use allowlisted no-price models only, never a paid fallback.
   const history=Array.isArray(input.history)?input.history.slice(-10).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string').map(m=>({role:m.role,content:m.content.slice(0,2500)})):[];
   const guide=knowledge.pages.map(p=>p.name+' @ '+p.route+' — '+p.summary).join('\n');
   const related=knowledge.lookup(question).map(p=>p.name+': '+p.summary+' ؛ حدود: '+p.limits).join('\n');
@@ -241,6 +240,7 @@ module.exports=async function(req,res){
   const messages=[{role:'system',content:system},...history,{role:'user',content}];
   const calculations=[],actions=[];
   let answer='';
+  try{
   for(let turn=0;turn<4;turn++){
    const reply=await askModel(messages,req);
    if(Array.isArray(reply.tool_calls)&&reply.tool_calls.length){
@@ -261,6 +261,12 @@ module.exports=async function(req,res){
      messages.push({role:'tool',tool_call_id:call.id,content:JSON.stringify(result)});
     }
    }else {answer=typeof reply.content==='string'?reply.content.trim():'';break}
+  }
+  }catch(e){
+   console.warn('Civil AI free gateway unavailable; local fallback used:',String(e?.status||e?.name||'error'));
+   const safe=offlineAnswer(question,'cloud-unavailable');
+   if(image)safe.answer='النموذج السحابي المجاني غير متاح الآن؛ لم أتمكن من فحص الصورة.\n'+safe.answer;
+   return respond(res,200,safe);
   }
   if(!answer&&calculations.length)answer='هذه نتائج الأدوات الحسابية. تأكد من الفروض والوحدات قبل استخدامها في التصميم.';
   if(!answer&&actions.length)answer='اقتراحات للتحكم في Civil AI؛ اضغط على الزر للتأكيد قبل تطبيقها.';
