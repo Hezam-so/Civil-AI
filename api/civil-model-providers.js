@@ -36,6 +36,12 @@ async function completion(messages,tools,req){
  let response;
  try{response=await fetch(endpoint,{method:'POST',headers,signal:AbortSignal.timeout(29000),body:JSON.stringify(body)});}
  catch(e){throw Object.assign(Error('تعذر الاتصال بالنموذج الخارجي'),{provider,providerStatus:0,causeType:String(e.name||'NetworkError')});}
+ if(openrouter&&response.status===400&&tools?.length&&!messages.some(m=>m.role==='tool')){
+   // Some free routes do not support function calling. Retry text only so general questions still work.
+   const retry=await fetch(endpoint,{method:'POST',headers,signal:AbortSignal.timeout(22000),
+     body:JSON.stringify({model,messages,max_completion_tokens:2048})});
+   response=retry;
+ }
  if(!response.ok){
    // Never log keys, prompts, user data, or provider response bodies.
    console.warn('Civil AI cloud unavailable',provider,response.status);
