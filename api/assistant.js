@@ -254,7 +254,7 @@ module.exports=async function(req,res){
    }else {answer=typeof reply.content==='string'?reply.content.trim():'';break}
   }
   }catch(e){
-   console.warn('Civil AI free gateway unavailable; local fallback used:',String(e?.status||e?.name||'error'));
+   console.warn('Civil AI external model unavailable; local fallback used:',String(e?.provider||'none'),Number(e?.providerStatus||0));
    const safe=offlineAnswer(question,'cloud-unavailable',history);safe.cloudUnavailable=true;safe.cloudProvider=e.provider||externalModels.preferred(req);safe.gatewayIssue=e.providerStatus===403?'access-denied':e.providerStatus===429?'rate-limited':e.providerStatus===402?'credits':e.providerStatus===401?'authentication':'unavailable';
    if(image)safe.answer='النموذج السحابي المجاني غير متاح الآن؛ لم أتمكن من فحص الصورة.\n'+safe.answer;
    return respond(res,200,safe);
