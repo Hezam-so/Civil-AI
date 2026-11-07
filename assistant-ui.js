@@ -128,7 +128,12 @@
    if(!response.ok)throw Error('الخدمة غير متاحة');
    const info=await response.json();
    $('aiStatus').textContent=info.providerMessage|| (info.enabled?'المزوّد الخارجي مهيأ ولم يتم اختبار طلب فعلي.':'المساعد المحلي متاح، والمزوّد الخارجي يحتاج إعدادًا.');
-   if(info.openrouterConfigured)$('assistantModeHint').textContent='تم إعداد OpenRouter مع وضع النموذج المجاني فقط. تعتمد الإجابات الخارجية على نجاح الاتصال وحدود النموذج المجاني. يطلب المساعد موافقتك قبل تعديل النماذج أو الانتقال.';
+   if(info.openrouterConfigured){
+    $('assistantModeHint').textContent='تم إعداد OpenRouter مع وضع النموذج المجاني فقط. تعتمد الإجابات الخارجية على نجاح الاتصال وحدود النموذج المجاني. يطلب المساعد موافقتك قبل تعبئة النماذج أو الانتقال.';
+    $('attachment').disabled=false;
+    $('attachment').removeAttribute('aria-disabled');
+    $('attachment').title='تحليل الصور متاح عند نجاح اتصال مزوّد OpenRouter المجاني؛ الصور تُرسل خارج الموقع عند الإرفاق';
+   }
    if(!info.enabled)$('chatHint').textContent+=' لتفعيل إجابات الذكاء الاصطناعي الخارجية يلزم إضافة مفتاح OPENROUTER_API_KEY في إعدادات خادم الموقع. لا تضع المفتاح في الدردشة.';
   }catch(e){$('aiStatus').textContent='فشل الاتصال بخادم المساعد — '+e.message}
  })();
