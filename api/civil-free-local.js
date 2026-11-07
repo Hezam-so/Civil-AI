@@ -123,7 +123,7 @@ function fallback(question,reason='local',history=[]){
   const prev=history.slice().reverse().find(x=>x?.role==='user'&&typeof x.content==='string');
   if(prev)ids=topics(norm(prev.content));
  }
- const isDefinition=/ماهو|ما هو|ماذا يعني|ما الفرق|عرف|تعريف|اشرح|لماذا|what is|define|explain|why/.test(q);
+ const isDefinition=/ماهو|ما هو|ماهي|ما هي|ماذا يعني|ما الفرق|عرف|تعريف|اشرح|لماذا|what is|define|explain|why/.test(q);
  if(isDefinition){
   const fact=facts.find(x=>x.test.test(q));
   if(fact)return response(fact.answer,ids,[],reason);
