@@ -112,7 +112,7 @@ function fallback(question,reason='local',history=[]){
  const wantsDirection=/اين|وين|كيف اصل|مكان|افتح|اذهب|انتقل|وديني|اريد|ابي|open|navigate|show me/.test(q);
  const wantsInstructions=/كيف|طريقه|شرح|استخدم|خطوات|explain|help/.test(q);
  if(ids.length){
-  if(!wantsDirection){const result=compute(q,ids);if(result)return {...result,reason};}
+  if(!wantsDirection&&(!wantsInstructions||numbers(q).length>0)){const result=compute(q,ids);if(result)return {...result,reason};}
   if(ids.includes('irregular')&&ids.includes('satellite')){
    return response('لحساب مساحة قطعة الأرض لديك ثلاث طرق:\n1. «الأراضي غير المنتظمة» إذا كان لديك إحداثيات الزوايا أو أضلاع المثلثات.\n2. «قياس الأراضي بالخريطة» إذا أردت تحديد الزوايا على صورة جوية وتصدير DXF/PDF.\n3. «تحويل وحدات الأراضي» لتحويل المساحة من متر مربع إلى لبنة أو قصبة وغيرها.\nاختر القسم المناسب من الأزرار المقترحة أدناه.', ['irregular','satellite','landarea'],[],reason);
   }
@@ -121,6 +121,8 @@ function fallback(question,reason='local',history=[]){
  }
  if(/البرنامج|الموقع|الخدمات|الادوات|civil ai/.test(q))
   return response('يضم Civil AI: مساعدًا هندسيًا، وحاسبة خرسانة ومكوناتها، وحاسبة كمرات، وقياس أراضٍ بالأقمار الصناعية، وحساب أرض غير منتظمة وتحويل وحداتها، ومختبرًا للقطاعات والأساسات وحصر التسليح والحفر والردم، وعارضات للملفات وحفظ المشاريع. أخبرني باسم القسم لشرح خطواته.', ['assistant','studio','satellite'],[],reason);
+ if(/حاسبه|حسابات|احسب|calculator/.test(q)&&!ids.length)
+  return response('توجد حاسبات مباشرة في الصفحة الرئيسية للخرسانة والكمرات وتحويل الوحدات، وفي المختبر المتقدم للقواعد والقطاعات والتسليح والحفر والردم، وكذلك حاسبة الأراضي. أخبرني بنوع الحساب الذي تريده لأفتح الصفحة المناسبة.', ['concrete','beam','studio'],[],reason);
  if(/شكرا|ممتاز|تسلم/.test(q))return response('على الرحب والسعة! اكتب سؤالك الهندسي مع الأبعاد والوحدات، وسأوجهك للأداة المناسبة.',[],[],reason);
  return response('سؤالك: «'+raw.slice(0,160)+'».\nلا أستطيع حاليًا تحليل جميع الأسئلة الحرة لأن النموذج السحابي لم يقبل الاتصال. بدل تكرار رد عام، يمكنك سؤالي عن أداة محددة أو إدخال أبعاد المسألة مع وحداتها. مثال: «أين حساب قطعة أرض؟»، «كيف أحسب حديد التسليح؟»، «احسب خرسانة مساحة 20 سماكة 0.2».',[],[],reason);
 }
