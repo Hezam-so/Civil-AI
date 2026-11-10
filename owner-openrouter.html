@@ -17,7 +17,7 @@ button:disabled{opacity:.6}a{color:#8be2ed}
 <body><main>
 <h1>إعداد OpenRouter لمالك Civil AI</h1>
 <p>هذه الصفحة مخصصة لتفويض مالك الموقع لمرة واحدة. بعد إتمام التفويض سيستخدم زوار Civil AI المساعد دون ربط حساب OpenRouter منفصل. لن يظهر لهم مفتاح API.</p>
-<p>يجب أن تكون قد سجلت دخولك إلى حساب Civil AI، وأن تستخدم رابط الإعداد الخاص الذي تم توفيره لك. اختر حساب OpenRouter المخصص للموقع وأكمل التفويض.</p>
+<p>يجب أن تكون قد سجلت دخولك إلى حساب Civil AI، وأن تستخدم رابط الإعداد الخاص الذي تم توفيره لك. سيتم التحقق على الخادم، دون الاعتماد على بقاء جلسة المتصفح. اختر حساب OpenRouter المخصص للموقع وأكمل التفويض.</p>
 <p id="status">جارٍ التحقق من حالة الخدمة...</p>
 <button id="authorize" disabled>تفويض OpenRouter وربطه بالموقع</button>
 <p><a href="/assistant.html">العودة إلى المساعد</a></p>
@@ -26,62 +26,63 @@ button:disabled{opacity:.6}a{color:#8be2ed}
 (async()=>{
  const $=id=>document.getElementById(id),btn=$('authorize'),out=$('status');
  const storageKey='civilai-owner-openrouter-setup-v1';
- const tell=text=>out.textContent=text;
+ const tell=message=>out.textContent=message;
  const request=async body=>{
-  const r=await fetch('/api/assistant',{method:'POST',credentials:'same-origin',
+  const response=await fetch('/api/assistant',{method:'POST',credentials:'same-origin',
    headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const result=await r.json().catch(()=>({}));
-  if(!r.ok)throw Error(result.error||'HTTP '+r.status);
+  const result=await response.json().catch(()=>({}));
+  if(!response.ok)throw Error(result.error||'HTTP '+response.status);
   return result;
  };
- const bytes=n=>{const x=new Uint8Array(n);crypto.getRandomValues(x);return x};
- const base64=x=>btoa(String.fromCharCode(...x)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
  const params=new URLSearchParams(location.search);
- const freshToken=params.get('setup'),returnedCode=params.get('code'),returnedState=params.get('state');
- // Remove setup secret and returned OAuth code from the address immediately.
+ const outcome=params.get('status'),freshToken=params.get('setup');
+ // Strip any sensitive setup token or one-time status out of URL immediately.
  window.history.replaceState(null,'',location.pathname);
- let saved;
- try{saved=JSON.parse(sessionStorage.getItem(storageKey)||'null')}catch{}
+ let previous;
+ try{previous=JSON.parse(sessionStorage.getItem(storageKey)||'null')}catch{}
  if(freshToken&&/^[a-f0-9]{64}$/.test(freshToken)){
-  saved={...(saved||{}),ownerToken:freshToken};
-  sessionStorage.setItem(storageKey,JSON.stringify(saved));
+  previous={ownerToken:freshToken};
+  sessionStorage.setItem(storageKey,JSON.stringify(previous));
  }
- if(returnedCode){
-  if(!saved||saved.state!==returnedState||!saved.verifier||!saved.ownerToken||
-    !Number.isFinite(saved.created)||Date.now()-saved.created>10*60*1000||saved.created>Date.now()){
-    tell('تعذر التحقق من التفويض أو انتهت صلاحيته. افتح رابط إعداد المالك مجددًا.');
-    return;
-  }
+ if(outcome==='connected'){
   sessionStorage.removeItem(storageKey);
-  tell('جارٍ استبدال رمز OpenRouter بمفتاح آمن خاص بالموقع...');
-  try{
-   await request({operation:'owner_openrouter_connect',ownerToken:saved.ownerToken,
-     code:returnedCode,codeVerifier:saved.verifier});
-   tell('اكتمل التفويض. تم حفظ مفتاح OpenRouter مشفرًا على الخادم، وأصبح المساعد جاهزًا للاستخدام المشترك. جرّب الآن سؤالًا في صفحة المساعد.');
-  }catch(e){tell('تعذر إكمال تفويض OpenRouter: '+e.message)}
+  tell('تمت الموافقة بنجاح، وحفظ الموقع مفتاح OpenRouter مشفرًا على الخادم. يستطيع مستخدمو Civil AI استخدام المساعد مباشرة دون تفويض شخصي.');
+  return;
+ }
+ if(outcome==='denied'){
+  tell('لم يتم منح التفويض في OpenRouter. افتح رابط إعداد المالك مجددًا إذا أردت المحاولة.');
+  return;
+ }
+ if(outcome==='failed'){
+  tell('عاد OpenRouter إلى الموقع، لكن تعذر إكمال حفظ المفتاح. افتح رابط إعداد المالك مجددًا للمحاولة؛ إذا تكرر الخطأ راجع حالة الخدمة.');
   return;
  }
  try{
   const status=await request({operation:'owner_openrouter_status'});
-  if(status.connected){tell('OpenRouter مرتبط بالفعل بحساب مالك الموقع. لا يلزم أي تفويض إضافي من الزوار.');return}
-  if(!saved?.ownerToken){tell('هذه الصفحة مخصصة للمالك. افتح رابط الإعداد الخاص لاستكمال الربط.');return}
-  tell('لم يتم ربط حساب المالك بعد. اضغط الزر للموافقة في OpenRouter.');
+  if(status.connected){
+   sessionStorage.removeItem(storageKey);
+   tell('OpenRouter مرتبط بالفعل بالموقع. لا يحتاج الزوار إلى أي تفويض إضافي.');
+   return;
+  }
+  if(!previous?.ownerToken){
+   tell('هذه الصفحة مخصصة للمالك. افتح رابط إعداد المالك الخاص الذي وصلك سابقًا لإكمال الربط.');
+   return;
+  }
+  tell('اضغط الزر للموافقة على OpenRouter مرة واحدة. بعد الموافقة يعالج الخادم العودة تلقائيًا حتى إذا فتح المتصفح جلسة جديدة.');
   btn.disabled=false;
- }catch(e){tell('تعذر التحقق من الإعداد: '+e.message);return}
+ }catch(e){tell('تعذر فحص حالة الربط: '+e.message);return}
  btn.onclick=async()=>{
   btn.disabled=true;
+  tell('جارٍ إنشاء جلسة تفويض آمنة على خادم Civil AI...');
   try{
-   const state=base64(bytes(24)),verifier=base64(bytes(48));
-   const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
-   sessionStorage.setItem(storageKey,JSON.stringify({ownerToken:saved.ownerToken,state,verifier,created:Date.now()}));
-   const callback=location.origin+'/owner-openrouter.html?state='+encodeURIComponent(state);
-   const url=new URL('https://openrouter.ai/auth');
-   url.searchParams.set('callback_url',callback);
-   url.searchParams.set('code_challenge',base64(hash));
-   url.searchParams.set('code_challenge_method','S256');
-   url.searchParams.set('key_label','Civil AI Site Assistant');
-   location.assign(url.toString());
-  }catch(e){tell('تعذر بدء التفويض: '+e.message);btn.disabled=false}
+   const result=await request({operation:'owner_openrouter_begin',ownerToken:previous.ownerToken});
+   if(!result.authorizationUrl||!result.authorizationUrl.startsWith('https://openrouter.ai/auth?'))
+    throw Error('عنوان تفويض غير صالح.');
+   location.assign(result.authorizationUrl);
+  }catch(e){
+   tell('تعذر بدء التفويض: '+e.message);
+   btn.disabled=false;
+  }
  };
 })();
 </script>
