@@ -87,7 +87,7 @@ async function finish(ownerId,state,code){
  if(!/^[a-f0-9]{64}$/.test(nonce)||authCode.length<8||authCode.length>2048||!/^[-\w.]+$/.test(authCode))
   throw Object.assign(Error('بيانات العودة من OpenRouter غير صالحة.'),{status:400});
  const entry=await get(pendingPath(nonce),{access:'private'});
- if(!entry?.stream||!entry.url)throw Object.assign(Error('جلسة التفويض غير موجودة أو استُخدمت بالفعل.'),{status:410});
+ if(entry?.statusCode!==200||!entry.stream)throw Object.assign(Error('جلسة التفويض غير موجودة أو استُخدمت بالفعل.'),{status:410});
  let pending;
  try{pending=JSON.parse(decrypt(await new Response(entry.stream).text()))}
  catch{throw Object.assign(Error('تعذر التحقق من جلسة التفويض.'),{status:400})}
@@ -95,15 +95,17 @@ async function finish(ownerId,state,code){
    !Number.isFinite(pending.createdAt)||Date.now()-pending.createdAt>10*60*1000||
    pending.createdAt>Date.now())
   throw Object.assign(Error('انتهت صلاحية جلسة التفويض.'),{status:410});
- // Remove pending credentials before using them to prevent an ordinary replay.
- await del(entry.url);
  if(await load(ownerId))throw Object.assign(Error('OpenRouter مرتبط بالموقع بالفعل.'),{status:409});
- return connect(ownerId,authCode,pending.verifier);
+ // OpenRouter authorization codes are single-use. Keep the encrypted pending state
+ // until the exchange successfully completes, so transient network errors can be retried.
+ const linked=await connect(ownerId,authCode,pending.verifier);
+ try{await del(entry.blob?.url||pendingPath(nonce))}catch{console.warn('Civil AI pending OAuth cleanup failed')}
+ return linked;
 }
 
 async function disconnect(userId){
  const file=await get(pathFor(userId),{access:'private'});
- if(file?.url)await del(file.url);
+ if(file?.blob?.url)await del(file.blob.url);
  return {connected:false};
 }
 module.exports={load,connect,disconnect,begin,finish};
