@@ -122,6 +122,74 @@
  $('chatForm').addEventListener('submit',(e)=>{e.preventDefault();sendQuestion($('question').value)});
  $('clear').onclick=()=>{history=[];chat.replaceChildren();outputs.replaceChildren();bubble('ai','بدأنا محادثة جديدة. كيف يمكنني مساعدتك هندسيًا؟')};
  document.querySelectorAll('[data-question]').forEach(b=>b.onclick=()=>{ $('question').value=b.dataset.question;$('question').focus()});
+
+ // PKCE OAuth login: the user authorizes OpenRouter, but never handles an API key.
+ const connectStatus=$('openrouterConnectStatus'),connectBtn=$('openrouterConnect'),disconnectBtn=$('openrouterDisconnect');
+ const pkceStore='civilai_openrouter_pending_v1';
+ function statusMsg(message){connectStatus.textContent=String(message)}
+ async function refreshOpenRouter(){
+  try{
+   const result=await api({operation:'openrouter_status'});
+   connectBtn.hidden=!!result.connected;
+   disconnectBtn.hidden=!result.connected;
+   statusMsg(result.connected?'متصل بـ OpenRouter في حسابك. يمكنك الآن طرح أسئلة خارجية باستخدام النماذج المجانية.':'لم يُربط OpenRouter بهذا الحساب بعد. اضغط الزر للبدء.');
+   if(result.connected){
+    $('attachment').disabled=false;
+    $('attachment').removeAttribute('aria-disabled');
+    $('assistantMode').value='cloud';
+    $('aiStatus').textContent='OpenRouter مرتبط بحسابك · نموذج مجاني (يتحقق عمله عند إرسال السؤال)';
+   }
+  }catch(e){statusMsg('تعذر التحقق من حالة ربط OpenRouter: '+e.message)}
+ }
+ connectBtn.onclick=async()=>{
+  connectBtn.disabled=true;
+  try{
+   if(!window.crypto?.subtle||!window.crypto?.getRandomValues)throw Error('يتطلب الربط اتصال HTTPS ومتصفحًا حديثًا.');
+   const bytes=window.crypto.getRandomValues(new Uint8Array(32));
+   const randomBase64=data=>btoa(String.fromCharCode(...data)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+   const verifier=randomBase64(bytes),state=randomBase64(window.crypto.getRandomValues(new Uint8Array(24)));
+   const digest=await window.crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier));
+   const challenge=randomBase64(new Uint8Array(digest));
+   sessionStorage.setItem(pkceStore,JSON.stringify({state,verifier,time:Date.now()}));
+   const callback=new URL('/assistant.html',location.origin);
+   callback.searchParams.set('or_state',state);
+   const authorization=new URL('https://openrouter.ai/auth');
+   authorization.searchParams.set('callback_url',callback.toString());
+   authorization.searchParams.set('code_challenge',challenge);
+   authorization.searchParams.set('code_challenge_method','S256');
+   statusMsg('سيتم توجيهك إلى OpenRouter لمنح الإذن...');
+   location.assign(authorization.toString());
+  }catch(e){connectBtn.disabled=false;statusMsg('تعذر بدء الربط: '+e.message)}
+ };
+ disconnectBtn.onclick=async()=>{
+  if(!confirm('هل تريد فصل OpenRouter عن حسابك في Civil AI؟ قد يبقى المفتاح نشطًا في OpenRouter ويمكن إلغاؤه من حسابك هناك.'))return;
+  disconnectBtn.disabled=true;
+  try{
+   await api({operation:'openrouter_disconnect'});
+   statusMsg('تم فصل OpenRouter من Civil AI. لإلغاء صلاحية المفتاح نفسه نهائيًا، ألغِه أيضًا من لوحة OpenRouter.');
+   $('attachment').disabled=true;
+   await refreshOpenRouter();
+  }catch(e){statusMsg('تعذر فصل الحساب: '+e.message)}
+  finally{disconnectBtn.disabled=false}
+ };
+ async function oauthCallback(){
+  const url=new URL(location.href),code=url.searchParams.get('code');
+  if(!code)return;
+  const externalState=url.searchParams.get('or_state');
+  // Remove the sensitive one-time code from the visible URL immediately.
+  url.searchParams.delete('code');url.searchParams.delete('or_state');
+  history.replaceState(null,'',url.pathname+url.search+url.hash);
+  const stored=sessionStorage.getItem(pkceStore);
+  sessionStorage.removeItem(pkceStore);
+  if(!stored)throw Error('جلسة الربط غير موجودة. ابدأ من زر ربط OpenRouter مجددًا.');
+  const expected=JSON.parse(stored);
+  if(expected.state!==externalState||Date.now()-expected.time>10*60*1000||expected.time>Date.now())throw Error('رمز التحقق من جلسة الربط غير مطابق أو انتهت صلاحيته.');
+  statusMsg('جارٍ تفعيل اتصال OpenRouter بصورة آمنة...');
+  await api({operation:'openrouter_connect',code,codeVerifier:expected.verifier});
+  await refreshOpenRouter();
+ }
+ (async()=>{try{await oauthCallback();}catch(e){statusMsg('فشل ربط OpenRouter: '+e.message)}finally{await refreshOpenRouter()}})();
+
  (async()=>{
   try{
    const response=await fetch('/api/assistant',{method:'GET',cache:'no-store',credentials:'same-origin'});
@@ -134,7 +202,7 @@
     $('attachment').removeAttribute('aria-disabled');
     $('attachment').title='تحليل الصور متاح عند نجاح اتصال مزوّد OpenRouter المجاني؛ الصور تُرسل خارج الموقع عند الإرفاق';
    }
-   if(!info.enabled)$('chatHint').textContent+=' لتفعيل إجابات الذكاء الاصطناعي الخارجية يلزم إضافة مفتاح OPENROUTER_API_KEY في إعدادات خادم الموقع. لا تضع المفتاح في الدردشة.';
+   if(!info.enabled)$('chatHint').textContent+=' يمكنك ربط OpenRouter من الزر أعلى الصفحة دون إدخال مفتاح API يدويًا.';
   }catch(e){$('aiStatus').textContent='فشل الاتصال بخادم المساعد — '+e.message}
  })();
 })();
