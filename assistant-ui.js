@@ -106,9 +106,10 @@
    pending.textContent=(result.mode==='local'?'[مساعد هندسي محلي]\n':result.provider==='openrouter'||result.provider==='kilo'?'[ذكاء اصطناعي خارجي]\n':'')+(result.answer||'لم أستلم جوابًا.');
    if(result.cloudUnavailable){
     // Keep external mode selected; a temporary outage should not permanently disable cloud chat.
-    $('aiStatus').textContent=result.gatewayIssue==='access-denied'
-      ?'رفض مزوّد '+(result.cloudProvider==='openrouter'?'OpenRouter':'Vercel AI Gateway')+' الاتصال (403)؛ المساعد المحلي متاح.'
-      :'تعذر اتصال مزوّد '+(result.cloudProvider==='openrouter'?'OpenRouter':'Vercel')+'؛ المساعد المحلي متاح.';
+    const providerName=result.cloudProvider==='kilo'?'Kilo AI Gateway':result.cloudProvider==='openrouter'?'OpenRouter':'النموذج الخارجي';
+    $('aiStatus').textContent=result.gatewayIssue==='rate-limited'
+      ?'وصل المساعد إلى حد الاستخدام المجاني لدى '+providerName+'؛ جرّب مرة أخرى لاحقًا.'
+      :'تعذر اتصال '+providerName+' في هذا الطلب؛ الحاسبات المحلية ما زالت متاحة.';
     $('assistantModeHint').textContent='تعذر اتصال النموذج المجاني في هذا الطلب. سيحاول المساعد الاتصال تلقائيًا عند السؤال التالي؛ لا يُستخدم نموذج مدفوع.';
    }
    const group=document.createElement('div');outputResult(group,null,result.calculations,result.actions);
