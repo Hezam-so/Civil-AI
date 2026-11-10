@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Civil AI | إعداد OpenRouter لمالك الموقع</title>
+<meta name="robots" content="noindex,nofollow,noarchive">
+<meta name="referrer" content="no-referrer">
+<link rel="stylesheet" href="/civil-design.css">
+<style>
+body{background:#081727;color:#eaf6ff;font-family:system-ui,Tahoma,Arial,sans-serif;margin:0}
+main{max-width:660px;margin:9vh auto;padding:26px;background:#112b43;border:1px solid #355a72;border-radius:18px;line-height:1.85}
+h1{font-size:23px}p{color:#c9dce8}button{border:0;border-radius:10px;background:#1784b5;color:white;font:inherit;font-weight:bold;padding:12px 19px;cursor:pointer}
+button:disabled{opacity:.6}a{color:#8be2ed}
+#status{white-space:pre-wrap;padding:12px;background:#082036;border-radius:9px}
+</style>
+<script src="/account-gate.js" defer></script>
+</head>
+<body><main>
+<h1>إعداد OpenRouter لمالك Civil AI</h1>
+<p>هذه الصفحة مخصصة لتفويض مالك الموقع لمرة واحدة. بعد إتمام التفويض سيستخدم زوار Civil AI المساعد دون ربط حساب OpenRouter منفصل. لن يظهر لهم مفتاح API.</p>
+<p>يجب أن تكون قد سجلت دخولك إلى حساب Civil AI، وأن تستخدم رابط الإعداد الخاص الذي تم توفيره لك. اختر حساب OpenRouter المخصص للموقع وأكمل التفويض.</p>
+<p id="status">جارٍ التحقق من حالة الخدمة...</p>
+<button id="authorize" disabled>تفويض OpenRouter وربطه بالموقع</button>
+<p><a href="/assistant.html">العودة إلى المساعد</a></p>
+<script>
+'use strict';
+(async()=>{
+ const $=id=>document.getElementById(id),btn=$('authorize'),out=$('status');
+ const storageKey='civilai-owner-openrouter-setup-v1';
+ const tell=text=>out.textContent=text;
+ const request=async body=>{
+  const r=await fetch('/api/assistant',{method:'POST',credentials:'same-origin',
+   headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const result=await r.json().catch(()=>({}));
+  if(!r.ok)throw Error(result.error||'HTTP '+r.status);
+  return result;
+ };
+ const bytes=n=>{const x=new Uint8Array(n);crypto.getRandomValues(x);return x};
+ const base64=x=>btoa(String.fromCharCode(...x)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ const params=new URLSearchParams(location.search);
+ const freshToken=params.get('setup'),returnedCode=params.get('code'),returnedState=params.get('state');
+ // Remove setup secret and returned OAuth code from the address immediately.
+ window.history.replaceState(null,'',location.pathname);
+ let saved;
+ try{saved=JSON.parse(sessionStorage.getItem(storageKey)||'null')}catch{}
+ if(freshToken&&/^[a-f0-9]{64}$/.test(freshToken)){
+  saved={...(saved||{}),ownerToken:freshToken};
+  sessionStorage.setItem(storageKey,JSON.stringify(saved));
+ }
+ if(returnedCode){
+  if(!saved||saved.state!==returnedState||!saved.verifier||!saved.ownerToken||
+    !Number.isFinite(saved.created)||Date.now()-saved.created>10*60*1000||saved.created>Date.now()){
+    tell('تعذر التحقق من التفويض أو انتهت صلاحيته. افتح رابط إعداد المالك مجددًا.');
+    return;
+  }
+  sessionStorage.removeItem(storageKey);
+  tell('جارٍ استبدال رمز OpenRouter بمفتاح آمن خاص بالموقع...');
+  try{
+   await request({operation:'owner_openrouter_connect',ownerToken:saved.ownerToken,
+     code:returnedCode,codeVerifier:saved.verifier});
+   tell('اكتمل التفويض. تم حفظ مفتاح OpenRouter مشفرًا على الخادم، وأصبح المساعد جاهزًا للاستخدام المشترك. جرّب الآن سؤالًا في صفحة المساعد.');
+  }catch(e){tell('تعذر إكمال تفويض OpenRouter: '+e.message)}
+  return;
+ }
+ try{
+  const status=await request({operation:'owner_openrouter_status'});
+  if(status.connected){tell('OpenRouter مرتبط بالفعل بحساب مالك الموقع. لا يلزم أي تفويض إضافي من الزوار.');return}
+  if(!saved?.ownerToken){tell('هذه الصفحة مخصصة للمالك. افتح رابط الإعداد الخاص لاستكمال الربط.');return}
+  tell('لم يتم ربط حساب المالك بعد. اضغط الزر للموافقة في OpenRouter.');
+  btn.disabled=false;
+ }catch(e){tell('تعذر التحقق من الإعداد: '+e.message);return}
+ btn.onclick=async()=>{
+  btn.disabled=true;
+  try{
+   const state=base64(bytes(24)),verifier=base64(bytes(48));
+   const hash=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
+   sessionStorage.setItem(storageKey,JSON.stringify({ownerToken:saved.ownerToken,state,verifier,created:Date.now()}));
+   const callback=location.origin+'/owner-openrouter.html?state='+encodeURIComponent(state);
+   const url=new URL('https://openrouter.ai/auth');
+   url.searchParams.set('callback_url',callback);
+   url.searchParams.set('code_challenge',base64(hash));
+   url.searchParams.set('code_challenge_method','S256');
+   url.searchParams.set('key_label','Civil AI Site Assistant');
+   location.assign(url.toString());
+  }catch(e){tell('تعذر بدء التفويض: '+e.message);btn.disabled=false}
+ };
+})();
+</script>
+</main></body></html>

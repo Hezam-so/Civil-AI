@@ -10,6 +10,7 @@ const advanced=require('./civil-advanced');
 const localAssistant=require('./civil-free-local');
 const externalModels=require('./civil-model-providers');
 const openrouterOAuth=require('./civil-openrouter-oauth');
+const GLOBAL_OWNER_ID=crypto.createHash('sha256').update('civilai:global-openrouter:owner').digest('hex');
 const FREE_MODELS=new Set(['inclusionai/ling-3.0-tiny-free']);
 const MODEL=FREE_MODELS.has(process.env.CIVIL_AI_AI_MODEL)?process.env.CIVIL_AI_AI_MODEL:'inclusionai/ling-3.0-tiny-free'; // Verified free text/tool model; no paid model routing.
 const ttl=14*86400;
@@ -190,7 +191,17 @@ async function askModel(messages,req){
 module.exports=async function(req,res){
  res.setHeader('Cache-Control','private,no-store');
  res.setHeader('X-Content-Type-Options','nosniff');
- if(req.method==='GET'){const status=externalModels.status(req);return respond(res,200,{enabled:status.available,cloudConfigured:status.available,cloudVerified:status.providerVerified,provider:status.configuredProvider,providerMessage:status.message,openrouterConfigured:status.openrouterConfigured,oauthConnectAvailable:true,model:status.model,calculators:true,localFree:true,freeCloudSubjectToAvailability:true,actionsRequireConfirmation:true,dailyAILimit:null});}
+ if(req.method==='GET'){
+  // Never expose owner credentials or individual account linkage.
+  const linked=await openrouterOAuth.load(GLOBAL_OWNER_ID).then(Boolean).catch(()=>false);
+  const status=externalModels.status(linked?{...req,civilOpenRouterKey:'linked-key-placeholder'}:req);
+  return respond(res,200,{enabled:status.available,cloudConfigured:linked,
+   cloudVerified:false,provider:linked?'openrouter':'none',
+   providerMessage:linked?'OpenRouter مرتبط بمالك الموقع؛ يتم التحقق من النموذج عند السؤال':'OpenRouter لم يربطه مالك الموقع بعد',
+   openrouterConfigured:linked,oauthConnectAvailable:false,
+   model:linked?status.model:null,calculators:true,localFree:true,
+   freeCloudSubjectToAvailability:true,actionsRequireConfirmation:true,dailyAILimit:null});
+ }
  if(req.method!=='POST')return respond(res,405,{error:'Method not allowed'});
  if(!secureOrigin(req))return respond(res,403,{error:'يجب إرسال الطلب من الموقع الأصلي.'});
  if(Number(req.headers['content-length']||0)>4200000)return respond(res,413,{error:'حجم الطلب كبير جدًا.'});
@@ -199,22 +210,23 @@ module.exports=async function(req,res){
   const user=await userFor(req);
   if(!user)return respond(res,401,{error:'سجل دخولك إلى حسابك أولًا.'});
   const input=typeof req.body==='string'?JSON.parse(req.body):req.body||{};
-  const session=parseCookie(req);
-  if(!session)return respond(res,401,{error:'جلسة الدخول غير صالحة.'});
-  if(['openrouter_connect','openrouter_disconnect','openrouter_status'].includes(input.operation)){
-   if(input.operation==='openrouter_connect'){
-    try{return respond(res,200,await openrouterOAuth.connect(session.id,input.code,input.codeVerifier));}
-    catch(e){return respond(res,e.status||502,{error:e.message||'تعذر ربط OpenRouter.'});}
-   }
-   if(input.operation==='openrouter_disconnect'){
-    try{return respond(res,200,await openrouterOAuth.disconnect(session.id));}
-    catch{return respond(res,502,{error:'تعذر فصل حساب OpenRouter الآن.'});}
-   }
-   try{
-    const key=await openrouterOAuth.load(session.id);
-    const status=externalModels.status({...req,civilOpenRouterKey:key});
-    return respond(res,200,{connected:!!key,externalProvider:status.configuredProvider,enabled:status.available,model:status.model,providerMessage:status.message});
-   }catch(e){console.warn('OpenRouter vault lookup failed',e.name);return respond(res,502,{error:'تعذر قراءة حالة ربط OpenRouter.'});}
+  // Restricted, one-time owner provisioning. Never accessible to ordinary users.
+  if(input.operation==='owner_openrouter_status'){
+   const connected=await openrouterOAuth.load(GLOBAL_OWNER_ID).then(Boolean).catch(()=>false);
+   return respond(res,200,{connected,canBegin:!connected});
+  }
+  if(input.operation==='owner_openrouter_connect'){
+   const configured=String(process.env.CIVIL_AI_OWNER_OPENROUTER_SETUP_TOKEN||'');
+   const supplied=String(input.ownerToken||'');
+   if(!/^[a-f0-9]{64}$/.test(configured)||!/^[a-f0-9]{64}$/.test(supplied))
+    return respond(res,403,{error:'رمز إعداد مالك الموقع غير صالح.'});
+   const t1=Buffer.from(configured),t2=Buffer.from(supplied);
+   if(t1.length!==t2.length||!crypto.timingSafeEqual(t1,t2))
+    return respond(res,403,{error:'غير مخول لربط حساب الموقع.'});
+   if(await openrouterOAuth.load(GLOBAL_OWNER_ID).then(Boolean).catch(()=>false))
+    return respond(res,409,{error:'الموقع مرتبط بحساب OpenRouter بالفعل؛ لا يمكن للزوار أو رابط إعداد قديم استبداله.'});
+   try{return respond(res,200,await openrouterOAuth.connect(GLOBAL_OWNER_ID,input.code,input.codeVerifier));}
+   catch(e){return respond(res,e.status||502,{error:e.message||'تعذر تفويض OpenRouter.'});}
   }
   if(input.operation==='calculate'){
    try{return respond(res,200,{answer:'تم الحساب بمعادلات ثابتة، مع عرض الفرضيات والوحدات.',calculations:[Object.hasOwn(advanced.specs,input.calculation?.kind)?advanced.calculate(input.calculation.kind,input.calculation?.values):calc(input.calculation?.kind,input.calculation?.values)],actions:[],mode:'calculator'})}
@@ -227,8 +239,8 @@ module.exports=async function(req,res){
   if(image&&(!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(image)||image.length>3900000))
    return respond(res,415,{error:'المرفقات المدعومة حاليًا: صورة PNG أو JPEG أو WebP لا تتجاوز 2.8 MB. لا ترفع PDF هنا.'});
   if(input.aiMode==='local')return respond(res,200,offlineAnswer(question,'local-selected',input.history));
-  try{req.civilOpenRouterKey=await openrouterOAuth.load(session.id);}
-  catch(e){console.warn('OpenRouter vault read failed',e.name);}
+  try{req.civilOpenRouterKey=await openrouterOAuth.load(GLOBAL_OWNER_ID);}
+  catch(e){console.warn('Civil AI shared OpenRouter key read failed',e.name);}
   if(!externalModels.preferred(req))return respond(res,200,offlineAnswer(question,'cloud-not-configured',input.history));
   // External provider uses explicitly free models only; never selects a paid fallback.
   const history=Array.isArray(input.history)?input.history.slice(-10).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string').map(m=>({role:m.role,content:m.content.slice(0,2500)})):[];

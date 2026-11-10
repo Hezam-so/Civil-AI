@@ -50,15 +50,6 @@ hr{border:0;border-top:1px solid var(--edge);margin:20px 0}
 <h1>المساعد الهندسي الذكي</h1>
 <p class="intro">اسأل عن أي فكرة هندسية، أو اطلب حل مسألة مدعومة. يستخدم المساعد أدوات حساب عددية ذات معادلات ثابتة، ويقترح فتح الأقسام وتعبئتها <strong>بعد موافقتك فقط</strong>.</p>
 <div class="status" id="aiStatus">جارٍ فحص اتصال الذكاء الاصطناعي…</div>
-<div class="panel" style="margin-bottom:16px;background:#113247" id="openrouterPanel">
- <h2 style="margin:0 0 6px">ربط مساعد OpenRouter الخارجي</h2>
- <p class="small" id="openrouterConnectStatus">تحقق من حالة الربط بحسابك. يمكنك ربط OpenRouter مباشرة دون نسخ مفتاح API أو إرساله في المحادثة.</p>
- <div class="form-actions">
-  <button class="btn primary" type="button" id="openrouterConnect">ربط OpenRouter بحسابي</button>
-  <button class="btn" type="button" id="openrouterDisconnect" hidden>إلغاء ربط OpenRouter</button>
- </div>
- <p class="small" style="margin-bottom:0">يتطلب الربط تسجيل الدخول إلى OpenRouter والموافقة عليه. يتم تشفير مفتاح حسابك وتخزينه في قاعدة بيانات خاصة على الخادم. الخدمة المجانية خاضعة لحصص OpenRouter.</p>
-</div>
 <div class="layout">
 <section class="panel" aria-label="المحادثة مع المساعد">
 <h2>اسأل مساعد Civil AI</h2>
@@ -69,12 +60,12 @@ hr{border:0;border-top:1px solid var(--edge);margin:20px 0}
 </div>
 <div class="chat-log" id="chatLog" aria-live="polite"><div class="msg ai">مرحبًا! أنا مساعد Civil AI. اكتب سؤالك بالعربية أو الإنجليزية. للمسائل العددية اختر الحاسبة الموثوقة أيضًا. النتائج المبدئية ليست بديلاً عن مراجعة مهندس متخصص.</div></div>
 <form class="chat-form" id="chatForm">
-<label for="assistantMode">طريقة المساعدة</label><select id="assistantMode" aria-label="وضع المساعد"><option value="cloud">✦ مساعد خارجي ذكي (OpenRouter المجاني عند التفعيل)</option><option value="local">⌁ مجاني محلي دائمًا: حسابات دقيقة ودليل البرنامج</option></select><p class="small" id="assistantModeHint">الأسئلة الحرة تحتاج ربط OpenRouter بمفتاح خادم آمن. عند غياب الاتصال يستخدم الموقع حاسباته المحلية؛ لا ينتقل إلى نموذج مدفوع.</p>
+<label for="assistantMode">طريقة المساعدة</label><select id="assistantMode" aria-label="وضع المساعد"><option value="cloud">✦ مساعد OpenRouter خارجي مجاني — يعمل تلقائيًا</option><option value="local">⌁ مجاني محلي دائمًا: حسابات دقيقة ودليل البرنامج</option></select><p class="small" id="assistantModeHint">يُفعّل OpenRouter مرة واحدة من مالك الموقع؛ بعدها يستخدمه جميع المستخدمين المسجلين دون تفويض مستقل. لا يُستخدم نموذج مدفوع.</p>
 <label for="question">السؤال أو التعليمات</label><textarea id="question" maxlength="4000" required placeholder="مثلاً: حل كمرة بسيطة الارتكاز طولها 8 متر وتحت حمل موزع 12 kN/m مع شرح الحل"></textarea>
-<label for="attachment">إرفاق صورة للتحليل عند تفعيل OpenRouter (اختياري)</label>
+<label for="attachment">إرفاق صورة للتحليل إذا دعمها النموذج المجاني (اختياري)</label>
 <input type="file" id="attachment" accept="image/png,image/jpeg,image/webp" disabled aria-disabled="true" title="يتطلب تفعيل OpenRouter" aria-describedby="assistantModeHint">
 <div class="form-actions"><button type="submit" class="btn primary" id="send">إرسال للمساعد ✦</button><button type="button" class="btn" id="clear">مسح المحادثة</button></div>
-<div class="small" id="chatHint">لا ترفع مستندات سرية؛ عند اختيار المساعد الخارجي تُرسل الأسئلة والصور المرفقة صراحة إلى OpenRouter ونموذجه المختار. لا ترفع معلومات سرية أو بيانات حساسة.</div>
+<div class="small" id="chatHint">لا ترفع مستندات سرية؛ تُرسل الأسئلة إلى OpenRouter والنموذج المجاني المختار بعد تفويض مالك الموقع. لا ترفع مستندات سرية أو بيانات حساسة؛ تخضع الخدمة لحدود مزودها.</div>
 </form>
 <div id="toolOutputs" aria-live="polite"></div>
 </section>
