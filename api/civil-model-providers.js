@@ -11,16 +11,16 @@ const freeModel=()=>{
  if(configured==='openrouter/free'||/^[a-z0-9][a-z0-9._-]*\/[a-z0-9._:-]+:free$/i.test(configured))return configured;
  return 'openrouter/free';
 };
-const openRouterReady=()=>!!process.env.OPENROUTER_API_KEY;
+const openRouterReady=req=>!!(req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY);
 const gatewayReady=req=>!!gatewayToken(req);
-const preferred=req=>openRouterReady()?'openrouter':gatewayReady(req)?'vercel':null;
+const preferred=req=>openRouterReady(req)?'openrouter':gatewayReady(req)?'vercel':null;
 const gatewayModel='inclusionai/ling-3.0-tiny-free';
 const status=req=>({
   available:!!preferred(req),configuredProvider:preferred(req),
-  openrouterConfigured:openRouterReady(),gatewayConfigured:gatewayReady(req),
+  openrouterConfigured:openRouterReady(req),openrouterLinked:!!req?.civilOpenRouterKey,gatewayConfigured:gatewayReady(req),
   providerVerified:false,
-  model:openRouterReady()?freeModel():gatewayReady(req)?gatewayModel:null,
-  message:openRouterReady()?'خدمة OpenRouter مهيأة، ويُختبر عملها عند إرسال سؤال':
+  model:openRouterReady(req)?freeModel():gatewayReady(req)?gatewayModel:null,
+  message:openRouterReady(req)?'خدمة OpenRouter مهيأة، ويُختبر عملها عند إرسال سؤال':
     gatewayReady(req)?'اتصال Vercel AI Gateway مهيأ لكنه غير مؤكد':
     'لا يوجد مفتاح نموذج خارجي؛ الحاسبات والمساعد المحلي يعملان'
 });
@@ -29,7 +29,7 @@ async function completion(messages,tools,req){
  if(!provider)throw Object.assign(Error('النموذج الخارجي غير مهيأ'),{provider:'none',providerStatus:0});
  const openrouter=provider==='openrouter',model=openrouter?freeModel():gatewayModel;
  const endpoint=openrouter?'https://openrouter.ai/api/v1/chat/completions':'https://ai-gateway.vercel.sh/v1/chat/completions';
- const token=openrouter?process.env.OPENROUTER_API_KEY:gatewayToken(req);
+ const token=openrouter?(req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY):gatewayToken(req);
  const headers={'Content-Type':'application/json',Authorization:'Bearer '+token};
  if(openrouter){headers['HTTP-Referer']='https://civilai2026.vercel.app';headers['X-Title']='Civil AI Engineering Assistant';}
  const body={model,messages,tools,tool_choice:'auto',max_completion_tokens:2048};
