@@ -242,7 +242,7 @@
   const externalState=url.searchParams.get('or_state');
   // Remove the sensitive one-time code from the visible URL immediately.
   url.searchParams.delete('code');url.searchParams.delete('or_state');
-  history.replaceState(null,'',url.pathname+url.search+url.hash);
+  window.history.replaceState(null,'',url.pathname+url.search+url.hash);
   const stored=sessionStorage.getItem(pkceStore);
   sessionStorage.removeItem(pkceStore);
   if(!stored)throw Error('جلسة الربط غير موجودة. ابدأ من زر ربط OpenRouter مجددًا.');
