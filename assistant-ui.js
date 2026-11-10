@@ -90,6 +90,70 @@
   }catch(err){const p=document.createElement('p');p.className='msg error';p.textContent=err.message;target.append(p)}
   finally{b.disabled=false}
  });
+ // OpenRouter OAuth PKCE: no secret is returned to or stored in the browser.
+ const oauthStorageKey='civilai_openrouter_pkce_v1';
+ const oauthButton=$('openrouterConnect'),oauthDisconnect=$('openrouterDisconnect'),oauthStatus=$('openrouterConnectStatus');
+ const oauthText=msg=>{if(oauthStatus)oauthStatus.textContent=msg};
+ const authorize=async()=>{
+  if(!window.crypto?.subtle||!window.crypto?.getRandomValues)throw Error('متصفحك لا يدعم إنشاء تفويض آمن.');
+  const randomBytes=n=>{const bytes=new Uint8Array(n);crypto.getRandomValues(bytes);return bytes};
+  const b64=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+  const verifier=b64(randomBytes(48)),state=b64(randomBytes(24));
+  const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
+  const callback=location.origin+'/assistant.html';
+  sessionStorage.setItem(oauthStorageKey,JSON.stringify({verifier,state,started:Date.now()}));
+  const params=new URLSearchParams({callback_url:callback,code_challenge:b64(digest),code_challenge_method:'S256',state,key_label:'Civil AI Engineering Assistant'});
+  location.assign('https://openrouter.ai/auth?'+params.toString());
+ };
+ async function refreshOAuthStatus(){
+  try{
+   const data=await api({operation:'openrouter_status'});
+   if(data.connected){
+    oauthText('تم ربط OpenRouter بحسابك بأمان. اختر المساعد الخارجي وأرسل سؤالًا لاختبار الاتصال.');
+    oauthButton.textContent='إعادة ربط OpenRouter';
+    oauthDisconnect.hidden=false;
+    $('attachment').disabled=false;$('attachment').removeAttribute('aria-disabled');
+    $('aiStatus').textContent='حساب OpenRouter مرتبط؛ اختبار عمل النموذج يتم عند إرسال السؤال.';
+   }else{
+    oauthText('لم يتم ربط حساب OpenRouter بعد. اضغط زر الربط وسجّل الدخول إلى OpenRouter للموافقة.');
+    oauthButton.textContent='ربط OpenRouter بحسابي';
+    oauthDisconnect.hidden=true;
+   }
+  }catch(e){oauthText('تعذر فحص حالة الربط: '+e.message)}
+ }
+ async function handleOAuthCallback(){
+  const params=new URLSearchParams(location.search),code=params.get('code');
+  if(!code)return;
+  // Remove one-time code from the address bar immediately.
+  const returnedState=params.get('state');
+  window.history.replaceState(null,'',location.pathname+location.hash);
+  let expected;
+  try{expected=JSON.parse(sessionStorage.getItem(oauthStorageKey)||'null')}catch{}
+  sessionStorage.removeItem(oauthStorageKey);
+  if(!expected||typeof expected.verifier!=='string'||typeof expected.state!=='string'||
+     expected.state!==returnedState||!Number.isFinite(expected.started)||
+     Date.now()-expected.started>10*60*1000||expected.started>Date.now()){
+    oauthText('تعذر التحقق من جلسة التفويض. أعد الربط من هذه الصفحة.');
+    return;
+  }
+  oauthText('جارٍ إكمال ربط OpenRouter بحسابك...');
+  try{
+   await api({operation:'openrouter_connect',code,codeVerifier:expected.verifier});
+   oauthText('تم إنشاء مفتاح خاص بحسابك وحفظه مشفرًا على الخادم.');
+   await refreshOAuthStatus();
+  }catch(e){oauthText('فشل الربط: '+e.message)}
+ }
+ oauthButton.onclick=async()=>{
+  oauthButton.disabled=true;
+  try{await authorize()}catch(e){oauthText('تعذر بدء التفويض: '+e.message);oauthButton.disabled=false}
+ };
+ oauthDisconnect.onclick=async()=>{
+  if(!confirm('هل تريد إزالة مفتاح OpenRouter المحفوظ من Civil AI لهذا الحساب؟'))return;
+  oauthDisconnect.disabled=true;
+  try{await api({operation:'openrouter_disconnect'});await refreshOAuthStatus()}catch(e){oauthText('تعذر فصل الاتصال: '+e.message)}
+  finally{oauthDisconnect.disabled=false}
+ };
+ handleOAuthCallback().then(()=>refreshOAuthStatus()).catch(e=>oauthText('فشل إتمام التفويض: '+e.message));
  let history=[],busy=false;
  async function toDataURL(file){
   if(!['image/png','image/jpeg','image/webp'].includes(file.type)||file.size>2.8*1024*1024)throw Error('اختر صورة PNG/JPEG/WebP أقل من 2.8 MB.');
