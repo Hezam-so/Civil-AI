@@ -13,25 +13,24 @@ const freeModel=()=>{
 };
 const openRouterReady=req=>!!(req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY);
 const gatewayReady=req=>!!gatewayToken(req);
-const preferred=req=>openRouterReady(req)?'openrouter':gatewayReady(req)?'vercel':null;
+const preferred=req=>openRouterReady(req)?'openrouter':null;
 const gatewayModel='inclusionai/ling-3.0-tiny-free';
 const status=req=>({
   available:!!preferred(req),configuredProvider:preferred(req),
   openrouterConfigured:openRouterReady(req),openrouterLinked:!!req?.civilOpenRouterKey,gatewayConfigured:gatewayReady(req),
   providerVerified:false,
-  model:openRouterReady(req)?freeModel():gatewayReady(req)?gatewayModel:null,
+  model:openRouterReady(req)?freeModel():null,
   message:openRouterReady(req)?'خدمة OpenRouter مهيأة، ويُختبر عملها عند إرسال سؤال':
-    gatewayReady(req)?'اتصال Vercel AI Gateway مهيأ لكنه غير مؤكد':
-    'لا يوجد مفتاح نموذج خارجي؛ الحاسبات والمساعد المحلي يعملان'
+    'لم يُفعّل مالك الموقع اتصال OpenRouter بعد؛ الحاسبات والمساعد المحلي يعملان'
 });
 async function completion(messages,tools,req){
  const provider=preferred(req);
  if(!provider)throw Object.assign(Error('النموذج الخارجي غير مهيأ'),{provider:'none',providerStatus:0});
  const openrouter=provider==='openrouter',model=openrouter?freeModel():gatewayModel;
- const endpoint=openrouter?'https://openrouter.ai/api/v1/chat/completions':'https://ai-gateway.vercel.sh/v1/chat/completions';
- const token=openrouter?(req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY):gatewayToken(req);
+ const endpoint='https://openrouter.ai/api/v1/chat/completions';
+ const token=req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY;
  const headers={'Content-Type':'application/json',Authorization:'Bearer '+token};
- if(openrouter){headers['HTTP-Referer']='https://civilai2026.vercel.app';headers['X-Title']='Civil AI Engineering Assistant';}
+ headers['HTTP-Referer']='https://civilai2026.vercel.app';headers['X-Title']='Civil AI Engineering Assistant';
  const body={model,messages,tools,tool_choice:'auto',max_completion_tokens:2048};
  let response;
  try{response=await fetch(endpoint,{method:'POST',headers,signal:AbortSignal.timeout(29000),body:JSON.stringify(body)});}
