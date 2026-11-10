@@ -59,9 +59,51 @@ async function connect(userId,code,verifier){
  });
  return {connected:true};
 }
+
+/* Owner-only OAuth PKCE pending state is stored on the server instead of sessionStorage,
+ * so the callback works even if authorization opens in another browser tab. */
+const pendingPath=state=>'civilai/keys/openrouter/pending/'+state+'.json';
+async function begin(ownerId){
+ const existing=await load(ownerId);
+ if(existing)throw Object.assign(Error('OpenRouter مرتبط بالموقع بالفعل.'),{status:409});
+ const state=crypto.randomBytes(32).toString('hex');
+ const verifier=crypto.randomBytes(48).toString('base64url');
+ const challenge=crypto.createHash('sha256').update(verifier).digest('base64url');
+ const callback='https://civilai2026.vercel.app/api/openrouter-owner-callback?state='+state;
+ const pending={owner:ownerId,verifier,createdAt:Date.now()};
+ await put(pendingPath(state),encrypt(JSON.stringify(pending)),{
+  access:'private',addRandomSuffix:false,allowOverwrite:false,
+  contentType:'application/json',cacheControlMaxAge:60
+ });
+ const url=new URL('https://openrouter.ai/auth');
+ url.searchParams.set('callback_url',callback);
+ url.searchParams.set('code_challenge',challenge);
+ url.searchParams.set('code_challenge_method','S256');
+ url.searchParams.set('key_label','Civil AI Site Assistant');
+ return {authorizationUrl:url.toString()};
+}
+async function finish(ownerId,state,code){
+ const nonce=String(state||''),authCode=String(code||'');
+ if(!/^[a-f0-9]{64}$/.test(nonce)||authCode.length<8||authCode.length>2048||!/^[-\w.]+$/.test(authCode))
+  throw Object.assign(Error('بيانات العودة من OpenRouter غير صالحة.'),{status:400});
+ const entry=await get(pendingPath(nonce),{access:'private'});
+ if(!entry?.stream||!entry.url)throw Object.assign(Error('جلسة التفويض غير موجودة أو استُخدمت بالفعل.'),{status:410});
+ let pending;
+ try{pending=JSON.parse(decrypt(await new Response(entry.stream).text()))}
+ catch{throw Object.assign(Error('تعذر التحقق من جلسة التفويض.'),{status:400})}
+ if(pending.owner!==ownerId||typeof pending.verifier!=='string'||
+   !Number.isFinite(pending.createdAt)||Date.now()-pending.createdAt>10*60*1000||
+   pending.createdAt>Date.now())
+  throw Object.assign(Error('انتهت صلاحية جلسة التفويض.'),{status:410});
+ // Remove pending credentials before using them to prevent an ordinary replay.
+ await del(entry.url);
+ if(await load(ownerId))throw Object.assign(Error('OpenRouter مرتبط بالموقع بالفعل.'),{status:409});
+ return connect(ownerId,authCode,pending.verifier);
+}
+
 async function disconnect(userId){
  const file=await get(pathFor(userId),{access:'private'});
  if(file?.url)await del(file.url);
  return {connected:false};
 }
-module.exports={load,connect,disconnect};
+module.exports={load,connect,disconnect,begin,finish};
