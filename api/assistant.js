@@ -9,7 +9,6 @@ const knowledge=require('./civil-knowledge');
 const advanced=require('./civil-advanced');
 const localAssistant=require('./civil-free-local');
 const externalModels=require('./civil-model-providers');
-const openrouterOAuth=require('./civil-openrouter-oauth');
 const FREE_MODELS=new Set(['inclusionai/ling-3.0-tiny-free']);
 const MODEL=FREE_MODELS.has(process.env.CIVIL_AI_AI_MODEL)?process.env.CIVIL_AI_AI_MODEL:'inclusionai/ling-3.0-tiny-free'; // Verified free text/tool model; no paid model routing.
 const ttl=14*86400;
@@ -190,7 +189,13 @@ async function askModel(messages,req){
 module.exports=async function(req,res){
  res.setHeader('Cache-Control','private,no-store');
  res.setHeader('X-Content-Type-Options','nosniff');
- if(req.method==='GET'){const status=externalModels.status(req);return respond(res,200,{enabled:status.available,cloudConfigured:status.available,cloudVerified:status.providerVerified,provider:status.configuredProvider,providerMessage:status.message,openrouterConfigured:status.openrouterConfigured,oauthConnectAvailable:true,model:status.model,calculators:true,localFree:true,freeCloudSubjectToAvailability:true,actionsRequireConfirmation:true,dailyAILimit:null});}
+ if(req.method==='GET'){
+  const status=externalModels.status(req);
+  return respond(res,200,{enabled:status.available,cloudConfigured:status.available,cloudVerified:false,
+   provider:status.configuredProvider,providerMessage:status.message,openrouterConfigured:false,
+   oauthConnectAvailable:false,model:status.model,calculators:true,localFree:true,
+   freeCloudSubjectToAvailability:true,actionsRequireConfirmation:true,dailyAILimit:null});
+ }
  if(req.method!=='POST')return respond(res,405,{error:'Method not allowed'});
  if(!secureOrigin(req))return respond(res,403,{error:'يجب إرسال الطلب من الموقع الأصلي.'});
  if(Number(req.headers['content-length']||0)>4200000)return respond(res,413,{error:'حجم الطلب كبير جدًا.'});
@@ -199,23 +204,6 @@ module.exports=async function(req,res){
   const user=await userFor(req);
   if(!user)return respond(res,401,{error:'سجل دخولك إلى حسابك أولًا.'});
   const input=typeof req.body==='string'?JSON.parse(req.body):req.body||{};
-  const session=parseCookie(req);
-  if(!session)return respond(res,401,{error:'جلسة الدخول غير صالحة.'});
-  if(['openrouter_connect','openrouter_disconnect','openrouter_status'].includes(input.operation)){
-   if(input.operation==='openrouter_connect'){
-    try{return respond(res,200,await openrouterOAuth.connect(session.id,input.code,input.codeVerifier));}
-    catch(e){return respond(res,e.status||502,{error:e.message||'تعذر ربط OpenRouter.'});}
-   }
-   if(input.operation==='openrouter_disconnect'){
-    try{return respond(res,200,await openrouterOAuth.disconnect(session.id));}
-    catch{return respond(res,502,{error:'تعذر فصل حساب OpenRouter الآن.'});}
-   }
-   try{
-    const key=await openrouterOAuth.load(session.id);
-    const status=externalModels.status({...req,civilOpenRouterKey:key});
-    return respond(res,200,{connected:!!key,externalProvider:status.configuredProvider,enabled:status.available,model:status.model,providerMessage:status.message});
-   }catch(e){console.warn('OpenRouter vault lookup failed',e.name);return respond(res,502,{error:'تعذر قراءة حالة ربط OpenRouter.'});}
-  }
   if(input.operation==='calculate'){
    try{return respond(res,200,{answer:'تم الحساب بمعادلات ثابتة، مع عرض الفرضيات والوحدات.',calculations:[Object.hasOwn(advanced.specs,input.calculation?.kind)?advanced.calculate(input.calculation.kind,input.calculation?.values):calc(input.calculation?.kind,input.calculation?.values)],actions:[],mode:'calculator'})}
    catch(e){return respond(res,400,{error:e.message})}
@@ -227,8 +215,6 @@ module.exports=async function(req,res){
   if(image&&(!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(image)||image.length>3900000))
    return respond(res,415,{error:'المرفقات المدعومة حاليًا: صورة PNG أو JPEG أو WebP لا تتجاوز 2.8 MB. لا ترفع PDF هنا.'});
   if(input.aiMode==='local')return respond(res,200,offlineAnswer(question,'local-selected',input.history));
-  try{req.civilOpenRouterKey=await openrouterOAuth.load(session.id);}
-  catch(e){console.warn('OpenRouter vault read failed',e.name);}
   if(!externalModels.preferred(req))return respond(res,200,offlineAnswer(question,'cloud-not-configured',input.history));
   // External provider uses explicitly free models only; never selects a paid fallback.
   const history=Array.isArray(input.history)?input.history.slice(-10).filter(m=>['user','assistant'].includes(m.role)&&typeof m.content==='string').map(m=>({role:m.role,content:m.content.slice(0,2500)})):[];
@@ -240,7 +226,7 @@ module.exports=async function(req,res){
    'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح أي صفحة مدعومة، وprepare_main_form لتعبئة حاسبات الصفحة الرئيسية وprepare_studio_form لتعبئة الكمرات والقطاعات والقواعد وحديد التسليح والحفر والردم. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير المشاريع من تلقاء نفسك. استخدم أدوات الحساب المعتمدة للمسائل المدعومة، وقدم تعبئة الحاسبة كإجراء مقترح فقط.',
    'لا تدعِ القيام بتحليل FEM أو تنفيذ Robot أو قراءة ملف DWG إن لم تنفذ أدوات موثوقة. عند وصول صورة يمكنك وصف الظاهر فقط دون اختلاق أبعاد أو قراءات غير واضحة. تصميم الخلطة الخرسانية وكود البناء يحتاجان مراجعة مهندس. لا تختلق مصادر.',
    'إن كانت المسألة خارج نطاق الحاسبات الرقمية فقدم منهج الحل وتحقق من الأبعاد ومعلومات التصميم، ولا تدع الفحص المبدئي فحصاً معتمداً.',
-   'النموذج الخارجي يختار نموذجاً مجانياً فقط دون تحويل إلى نموذج مدفوع احتياطياً. الإجابات الحرة قد تكون غير دقيقة؛ استخدم الأدوات الحسابية للنتائج المدعومة.',
+   'استخدم نموذجاً مجانياً فقط دون تحويل إلى نموذج مدفوع. لا تطلب بيانات سرية أو شخصية من المستخدم، وقدم إجابات واقعية واضحة. عند عدم توفر أدوات موثوقة، وضح حدودك.',
    'صفحات الموقع: '+guide,
    'الصفحات المتصلة بالسؤال والحدود: '+related
   ].join('\n');
