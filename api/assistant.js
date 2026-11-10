@@ -215,7 +215,7 @@ module.exports=async function(req,res){
    const connected=await openrouterOAuth.load(GLOBAL_OWNER_ID).then(Boolean).catch(()=>false);
    return respond(res,200,{connected,canBegin:!connected});
   }
-  if(input.operation==='owner_openrouter_connect'){
+  if(input.operation==='owner_openrouter_begin'){
    const configured=String(process.env.CIVIL_AI_OWNER_OPENROUTER_SETUP_TOKEN||'');
    const supplied=String(input.ownerToken||'');
    if(!/^[a-f0-9]{64}$/.test(configured)||!/^[a-f0-9]{64}$/.test(supplied))
@@ -223,10 +223,8 @@ module.exports=async function(req,res){
    const t1=Buffer.from(configured),t2=Buffer.from(supplied);
    if(t1.length!==t2.length||!crypto.timingSafeEqual(t1,t2))
     return respond(res,403,{error:'غير مخول لربط حساب الموقع.'});
-   if(await openrouterOAuth.load(GLOBAL_OWNER_ID).then(Boolean).catch(()=>false))
-    return respond(res,409,{error:'الموقع مرتبط بحساب OpenRouter بالفعل؛ لا يمكن للزوار أو رابط إعداد قديم استبداله.'});
-   try{return respond(res,200,await openrouterOAuth.connect(GLOBAL_OWNER_ID,input.code,input.codeVerifier));}
-   catch(e){return respond(res,e.status||502,{error:e.message||'تعذر تفويض OpenRouter.'});}
+   try{return respond(res,200,await openrouterOAuth.begin(GLOBAL_OWNER_ID));}
+   catch(e){return respond(res,e.status||502,{error:e.message||'تعذر بدء تفويض OpenRouter.'})}
   }
   if(input.operation==='calculate'){
    try{return respond(res,200,{answer:'تم الحساب بمعادلات ثابتة، مع عرض الفرضيات والوحدات.',calculations:[Object.hasOwn(advanced.specs,input.calculation?.kind)?advanced.calculate(input.calculation.kind,input.calculation?.values):calc(input.calculation?.kind,input.calculation?.values)],actions:[],mode:'calculator'})}
