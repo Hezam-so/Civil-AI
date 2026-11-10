@@ -50,6 +50,15 @@ hr{border:0;border-top:1px solid var(--edge);margin:20px 0}
 <h1>المساعد الهندسي الذكي</h1>
 <p class="intro">اسأل عن أي فكرة هندسية، أو اطلب حل مسألة مدعومة. يستخدم المساعد أدوات حساب عددية ذات معادلات ثابتة، ويقترح فتح الأقسام وتعبئتها <strong>بعد موافقتك فقط</strong>.</p>
 <div class="status" id="aiStatus">جارٍ فحص اتصال الذكاء الاصطناعي…</div>
+<div class="panel" style="margin-bottom:16px;background:#113247" id="openrouterPanel">
+ <h2 style="margin:0 0 6px">ربط مساعد OpenRouter الخارجي</h2>
+ <p class="small" id="openrouterConnectStatus">تحقق من حالة الربط بحسابك. يمكنك ربط OpenRouter مباشرة دون نسخ مفتاح API أو إرساله في المحادثة.</p>
+ <div class="form-actions">
+  <button class="btn primary" type="button" id="openrouterConnect">ربط OpenRouter بحسابي</button>
+  <button class="btn" type="button" id="openrouterDisconnect" hidden>إلغاء ربط OpenRouter</button>
+ </div>
+ <p class="small" style="margin-bottom:0">يتطلب الربط تسجيل الدخول إلى OpenRouter والموافقة عليه. يتم تشفير مفتاح حسابك وتخزينه في قاعدة بيانات خاصة على الخادم. الخدمة المجانية خاضعة لحصص OpenRouter.</p>
+</div>
 <div class="layout">
 <section class="panel" aria-label="المحادثة مع المساعد">
 <h2>اسأل مساعد Civil AI</h2>
