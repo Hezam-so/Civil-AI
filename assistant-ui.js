@@ -100,9 +100,9 @@
   const b64=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
   const verifier=b64(randomBytes(48)),state=b64(randomBytes(24));
   const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(verifier)));
-  const callback=location.origin+'/assistant.html';
+  const callback=location.origin+'/assistant.html?state='+encodeURIComponent(state);
   sessionStorage.setItem(oauthStorageKey,JSON.stringify({verifier,state,started:Date.now()}));
-  const params=new URLSearchParams({callback_url:callback,code_challenge:b64(digest),code_challenge_method:'S256',state,key_label:'Civil AI Engineering Assistant'});
+  const params=new URLSearchParams({callback_url:callback,code_challenge:b64(digest),code_challenge_method:'S256',key_label:'Civil AI Engineering Assistant'});
   location.assign('https://openrouter.ai/auth?'+params.toString());
  };
  async function refreshOAuthStatus(){
