@@ -58,7 +58,41 @@ $('exportProjects').onclick=()=>{
 };
 window.addEventListener('civil-auth-ready',loadAccountProjects);
 if(window.CivilAccount)loadAccountProjects();
-function chatReply(q){q=q.toLowerCase();if(/beam|girder|كمرة|كمره|عزم|moment|shear|قص|حمل موزع|udl/.test(q))return t('chatBeam');if(/concrete|خرسان|volume|حجم/.test(q))return t('chatConcrete');if(/help|how|استخدام|كيف|أداة|tool/.test(q))return t('chatHelp');return t('chatFallback')}function addBubble(text,who){let div=document.createElement('div');div.className='bubble '+who;div.textContent=text;$('chatLog').append(div);$('chatLog').scrollTop=$('chatLog').scrollHeight}$('chatForm').onsubmit=e=>{e.preventDefault();let q=$('chatText').value.trim();if(!q)return;addBubble(q,'user');addBubble(chatReply(q),'bot');$('chatText').value=''};$('calcBeam').onclick=calcBeam;$('calcConcrete').onclick=calcConcrete;updateLanguage();window.CivilConcreteMix?.syncLanguage();populateUnits();calcBeam();calcConcrete();
+function addBubble(text,who){let div=document.createElement('div');div.className='bubble '+who;div.textContent=text;$('chatLog').append(div);$('chatLog').scrollTop=$('chatLog').scrollHeight;return div}
+let homeAiHistory=[],homeAiBusy=false;
+$('chatForm').onsubmit=async e=>{
+ e.preventDefault();
+ const q=$('chatText').value.trim();
+ if(!q||homeAiBusy)return;
+ if(q.length>4000){alert('الحد الأقصى للسؤال 4000 حرف');return}
+ homeAiBusy=true;
+ const button=$('chatForm').querySelector('[type="submit"]');
+ if(button)button.disabled=true;
+ addBubble(q,'user');
+ const pending=addBubble('جارٍ الحصول على إجابة…','bot');
+ try{
+  const response=await fetch('/api/assistant',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+   operation:'chat',aiMode:'cloud',question:q,history:homeAiHistory.slice(-8)
+  })});
+  const body=await response.json().catch(()=>({error:'تعذر قراءة استجابة المساعد'}));
+  if(!response.ok)throw Error(body.error||'HTTP '+response.status);
+  pending.textContent=(body.mode==='local'?'[مساعد محلي]\n':'')+(body.answer||'لم أستلم إجابة.');
+  if(body.actions?.length){
+   const open=addBubble('لإتمام الإجراءات المقترحة وفتح الحاسبات، استخدم المساعد الهندسي الكامل.','bot');
+   const a=document.createElement('a');a.href='/assistant.html';a.textContent='فتح المساعد الكامل';
+   a.style.cssText='display:block;text-decoration:underline;margin-top:5px;color:inherit';
+   open.append(a);
+  }
+  homeAiHistory.push({role:'user',content:q},{role:'assistant',content:body.answer||''});
+  homeAiHistory=homeAiHistory.slice(-10);
+  $('chatText').value='';
+ }catch(err){
+  pending.textContent='تعذر إكمال الإجابة: '+err.message;
+ }finally{
+  homeAiBusy=false;
+  if(button)button.disabled=false;
+ }
+};$('calcBeam').onclick=calcBeam;$('calcConcrete').onclick=calcConcrete;updateLanguage();window.CivilConcreteMix?.syncLanguage();populateUnits();calcBeam();calcConcrete();
 
 // Approved assistant navigation/prefill — client-side and ephemeral (no save/delete).
 (function resumeApprovedAssistantAction(){
