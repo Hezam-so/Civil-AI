@@ -17,7 +17,7 @@ const preferred=req=>openRouterReady(req)?'openrouter':gatewayReady(req)?'vercel
 const gatewayModel='inclusionai/ling-3.0-tiny-free';
 const status=req=>({
   available:!!preferred(req),configuredProvider:preferred(req),
-  openrouterConfigured:openRouterReady(req),gatewayConfigured:gatewayReady(req),
+  openrouterConfigured:openRouterReady(req),openrouterLinked:!!req?.civilOpenRouterKey,gatewayConfigured:gatewayReady(req),
   providerVerified:false,
   model:openRouterReady(req)?freeModel():gatewayReady(req)?gatewayModel:null,
   message:openRouterReady(req)?'خدمة OpenRouter مهيأة، ويُختبر عملها عند إرسال سؤال':
