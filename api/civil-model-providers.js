@@ -1,57 +1,62 @@
-/* Civil AI external LLM transport. Keys remain server-side in Vercel environment.
- * Only $0 OpenRouter model IDs are allowed; no automatic paid fallback.
- * All actual site actions are validated by api/assistant.js and need client consent. */
+/* Civil AI external inference. Free anonymous Kilo Gateway is the default:
+ * no visitor OAuth, API key or paid model is required.
+ * Existing OpenRouter credentials (if previously authorized) remain supported.
+ * All tool proposals are validated by api/assistant.js and require user approval. */
 'use strict';
 
-const gatewayToken=req=>process.env.AI_GATEWAY_API_KEY||
-  req?.headers?.['x-vercel-oidc-token']||process.env.VERCEL_OIDC_TOKEN;
-
-const freeModel=()=>{
+const FREE_KILO_MODEL='kilo-auto/free';
+const KILO_URL='https://ai-gateway.kilo.ai/api/v1/chat/completions';
+const freeOpenRouterModel=()=>{
  const configured=String(process.env.CIVIL_AI_OPENROUTER_MODEL||'').trim();
  if(configured==='openrouter/free'||/^[a-z0-9][a-z0-9._-]*\/[a-z0-9._:-]+:free$/i.test(configured))return configured;
  return 'openrouter/free';
 };
-const openRouterReady=req=>!!(req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY);
-const gatewayReady=req=>!!gatewayToken(req);
-const preferred=req=>openRouterReady(req)?'openrouter':gatewayReady(req)?'vercel':null;
-const gatewayModel='inclusionai/ling-3.0-tiny-free';
-const status=req=>({
-  available:!!preferred(req),configuredProvider:preferred(req),
-  openrouterConfigured:openRouterReady(req),openrouterLinked:!!req?.civilOpenRouterKey,gatewayConfigured:gatewayReady(req),
-  providerVerified:false,
-  model:openRouterReady(req)?freeModel():gatewayReady(req)?gatewayModel:null,
-  message:openRouterReady(req)?'خدمة OpenRouter مهيأة، ويُختبر عملها عند إرسال سؤال':
-    gatewayReady(req)?'اتصال Vercel AI Gateway مهيأ لكنه غير مؤكد':
-    'لا يوجد مفتاح نموذج خارجي؛ الحاسبات والمساعد المحلي يعملان'
-});
-async function completion(messages,tools,req){
+const hasOpenRouter=req=>!!(req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY);
+const preferred=req=>hasOpenRouter(req)?'openrouter':'kilo';
+const status=req=>{
  const provider=preferred(req);
- if(!provider)throw Object.assign(Error('النموذج الخارجي غير مهيأ'),{provider:'none',providerStatus:0});
- const openrouter=provider==='openrouter',model=openrouter?freeModel():gatewayModel;
- const endpoint=openrouter?'https://openrouter.ai/api/v1/chat/completions':'https://ai-gateway.vercel.sh/v1/chat/completions';
- const token=openrouter?(req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY):gatewayToken(req);
- const headers={'Content-Type':'application/json',Authorization:'Bearer '+token};
- if(openrouter){headers['HTTP-Referer']='https://civilai2026.vercel.app';headers['X-Title']='Civil AI Engineering Assistant';}
- const body={model,messages,tools,tool_choice:'auto',max_completion_tokens:2048};
- let response;
- try{response=await fetch(endpoint,{method:'POST',headers,signal:AbortSignal.timeout(29000),body:JSON.stringify(body)});}
- catch(e){throw Object.assign(Error('تعذر الاتصال بالنموذج الخارجي'),{provider,providerStatus:0,causeType:String(e.name||'NetworkError')});}
- if(openrouter&&response.status===400&&tools?.length&&!messages.some(m=>m.role==='tool')){
-   // Some free routes do not support function calling. Retry text only so general questions still work.
-   const retry=await fetch(endpoint,{method:'POST',headers,signal:AbortSignal.timeout(22000),
-     body:JSON.stringify({model,messages,max_completion_tokens:2048})});
-   response=retry;
+ return {
+  available:true,configuredProvider:provider,providerVerified:false,
+  openrouterConfigured:hasOpenRouter(req),openrouterLinked:!!req?.civilOpenRouterKey,
+  gatewayConfigured:false,model:provider==='openrouter'?freeOpenRouterModel():FREE_KILO_MODEL,
+  message:provider==='kilo'
+   ?'مساعد خارجي مجاني مباشر (Kilo Gateway)؛ يعمل دون ربط حساب، حسب توفر النماذج وحدود الاستخدام'
+   :'مساعد خارجي OpenRouter؛ يتحقق نجاح النموذج عند السؤال'
+ };
+};
+async function completion(messages,tools,req){
+ const provider=preferred(req),isRouter=provider==='openrouter';
+ const model=isRouter?freeOpenRouterModel():FREE_KILO_MODEL;
+ const endpoint=isRouter?'https://openrouter.ai/api/v1/chat/completions':KILO_URL;
+ const headers={'Content-Type':'application/json'};
+ if(isRouter){
+  headers.Authorization='Bearer '+(req?.civilOpenRouterKey||process.env.OPENROUTER_API_KEY);
+  headers['HTTP-Referer']='https://civilai2026.vercel.app';
+  headers['X-Title']='Civil AI Engineering Assistant';
  }
+ const call=async(withTools)=>{
+  const body={model,messages,max_tokens:2048};
+  if(withTools&&Array.isArray(tools)&&tools.length){body.tools=tools;body.tool_choice='auto';}
+  try{
+   return await fetch(endpoint,{method:'POST',headers,signal:AbortSignal.timeout(28000),
+    body:JSON.stringify(body)});
+  }catch(e){
+   throw Object.assign(Error('تعذر الاتصال بالنموذج الخارجي'),{provider,providerStatus:0,causeType:String(e?.name||'NetworkError')});
+  }
+ };
+ let response=await call(true);
+ // Models in the free pool do not always implement tool calling.
+ // Retry without tools only before any tool responses have been added.
+ if([400,422].includes(response.status)&&tools?.length&&!messages.some(m=>m.role==='tool'))response=await call(false);
  if(!response.ok){
-   // Never log keys, prompts, user data, or provider response bodies.
-   console.warn('Civil AI cloud unavailable',provider,response.status);
-   throw Object.assign(Error('تعذر الاتصال بمزوّد النموذج الخارجي'),{provider,providerStatus:response.status});
+  console.warn('Civil AI free provider status',provider,response.status);
+  throw Object.assign(Error('تعذر الاتصال بمزوّد الذكاء الخارجي'),{provider,providerStatus:response.status});
  }
  let data;
- try{data=await response.json();}catch{throw Object.assign(Error('استجابة النموذج غير صالحة'),{provider,providerStatus:502});}
- const message=data.choices?.[0]?.message;
+ try{data=await response.json();}catch{throw Object.assign(Error('استجابة المزود غير صالحة'),{provider,providerStatus:502});}
+ const message=data?.choices?.[0]?.message;
  if(!message||(!message.content&&!message.tool_calls?.length))
-  throw Object.assign(Error('لم يرجع النموذج إجابة'),{provider,providerStatus:502});
+  throw Object.assign(Error('النموذج لم يرجع إجابة'),{provider,providerStatus:502});
  return {message,provider,model:data.model||model};
 }
-module.exports={completion,status,preferred,freeModel};
+module.exports={completion,status,preferred,freeModel:freeOpenRouterModel,FREE_KILO_MODEL};
