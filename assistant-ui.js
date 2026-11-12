@@ -55,11 +55,27 @@
    if(item.assumptions?.length){const ul=document.createElement('ul');ul.className='small';for(const txt of item.assumptions){const li=document.createElement('li');li.textContent=txt;ul.append(li)}article.append(ul)}
    parent.append(article);
   }
+  if(Array.isArray(calcs)&&calcs.length){
+   const report=document.createElement('button');
+   report.type='button';report.className='btn';
+   report.textContent='عرض التقرير الهندسي / حفظ PDF';
+   report.onclick=()=>{
+    try{window.CivilEngineeringReport.open(calcs)}
+    catch(e){alert('تعذر فتح التقرير: '+e.message)}
+   };
+   parent.append(report);
+  }
   for(const action of actions||[]){
    if(action?.type!=='navigate'&&action?.type!=='prefill')continue;
    const row=document.createElement('div');row.className='result';
    const explain=document.createElement('p');explain.textContent=action.type==='prefill'?'اقتراح تعبئة نموذج الحساب. راجع القيم قبل موافقتك: '+JSON.stringify(action.fields||{}):'اقتراح الانتقال إلى قسم '+action.page+' في '+action.target;
    row.append(explain);
+   if(action.target==='irregular'&&action.type==='prefill'&&action.preview){
+    const preview=document.createElement('p');preview.className='small';
+    preview.textContent='معاينة: المساحة '+action.preview.areaM2+' م²، المحيط '+action.preview.perimeterM+
+     ' م، عدد الزوايا '+action.preview.vertices+'. يجب مراجعة الحدود قبل حفظ المشروع.';
+    row.append(preview);
+   }
    const button=document.createElement('button');button.className='btn';button.type='button';button.textContent=action.type==='prefill'?'تأكيد تعبئة النموذج':'موافق، افتح القسم';
    button.onclick=()=>{
     if(!window.confirm('هل توافق على '+(action.type==='prefill'?'تعبئة القيم التالية دون حفظها؟':'فتح هذا القسم؟')+'\n'+(action.type==='prefill'?JSON.stringify(action.fields):String(action.page))))return;
@@ -69,6 +85,18 @@
     }else if(action.target==='studio'){
      if(action.type==='prefill')sessionStorage.setItem('civilai_confirmed_studio_prefill',JSON.stringify({page:action.page,fields:action.fields,at:Date.now()}));
      location.href='/studio.html?open='+encodeURIComponent(action.page);
+    }else if(action.target==='irregular'&&action.type==='prefill'&&action.page==='irregular'){
+     const v=action.fields?.points;
+     const valid=Array.isArray(v)&&v.length>=3&&v.length<=100&&v.every(p=>
+      p&&Number.isFinite(p.x)&&Number.isFinite(p.y)&&Math.abs(p.x)<=1e8&&Math.abs(p.y)<=1e8);
+     if(!valid){alert('بيانات زوايا الأرض غير صالحة؛ لم يُنفّذ الإجراء.');return}
+     sessionStorage.setItem('civilai_confirmed_irregular_prefill',JSON.stringify({
+      page:'irregular',
+      fields:{title:String(action.fields?.title||'أرض غير منتظمة').slice(0,120),
+       points:v.map(p=>({x:p.x,y:p.y}))},
+      at:Date.now()
+     }));
+     location.href='/irregular-land.html';
     }
    };
    row.append(button);parent.append(row);
