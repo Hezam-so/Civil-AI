@@ -94,6 +94,7 @@ const basicSpecs={
 };
 const specs={...basicSpecs,...advanced.specs,
  open_page:{description:'Suggest opening one of the verified Civil AI pages with user approval.',properties:{pageId:{type:'string',enum:knowledge.pages.map(p=>p.id)}},required:['pageId']},
+ prepare_land_polygon:{description:'When a user provides planar X,Y parcel coordinates in meters and wants to input them, validate polygon and propose filling the land calculator. User must approve. Never invent coordinates from images, addresses, or GPS degrees. Do not save or export automatically.',properties:{title:{type:'string'},points:{type:'array',items:{type:'object',properties:{x:{type:'number'},y:{type:'number'}},required:['x','y'],additionalProperties:false},minItems:3,maxItems:100}},required:['points']},
  prepare_studio_form:{description:'Suggest prefill of supported Studio beam, footing and section fields after explicit user confirmation; never executes or saves.',properties:{page:{type:'string',enum:['beam','footing','section','rebar','earth']},diameterMm:{type:'number'},barLengthM:{type:'number'},quantity:{type:'number'},wastePercent:{type:'number'},stationRows:{type:'string'},spanM:{type:'number'},elasticModulusGpa:{type:'number'},inertiaMm4:{type:'number'},axialLoadKn:{type:'number'},lengthM:{type:'number'},widthM:{type:'number'},heightM:{type:'number'},allowableKpa:{type:'number'},sectionWidthMm:{type:'number'},sectionHeightMm:{type:'number'}},required:['page']}
 };
 const tools=Object.entries(specs).map(([name,v])=>({type:'function',function:{name,description:v.description,parameters:{type:'object',properties:v.properties,required:v.required,additionalProperties:false}}}));
@@ -102,6 +103,15 @@ const pageAllowed={
  studio:new Set(['home','beam','section','footing','earth','rebar','files','assistant'])
 };
 function act(name,args){
+ if(name==='prepare_land_polygon'){
+  if(!Array.isArray(args.points)||args.points.length<3||args.points.length>100)throw Error('تحتاج حدود الأرض إلى 3–100 زاوية.');
+  const points=args.points.map(p=>({x:num(p.x,'X',{min:-1e8,max:1e8}),y:num(p.y,'Y',{min:-1e8,max:1e8})}));
+  const measurement=advanced.calculate('polygon_area',{points});
+  const title=String(args.title||'أرض غير منتظمة').trim().slice(0,120)||'أرض غير منتظمة';
+  return {type:'prefill',target:'irregular',page:'irregular',fields:{title,points},label:'تعبئة حدود الأرض',
+   preview:{areaM2:measurement.result.areaM2,perimeterM:measurement.result.perimeterM,vertices:points.length},
+   warning:'الإحداثيات مستوية بالمتر. هذا حساب أولي، ولم يُحفظ مشروعك بعد.'};
+ }
  if(name==='open_page'){
   const page=knowledge.pages.find(p=>p.id===args.pageId);
   if(!page||!knowledge.allowedRoutes.has(page.route))throw Error('Unknown site page');
@@ -246,8 +256,8 @@ module.exports=async function(req,res){
   const related=knowledge.lookup(question).map(p=>p.name+': '+p.summary+' ؛ حدود: '+p.limits).join('\n');
   const system=[
    'أنت مساعد Civil AI للهندسة المدنية. أجب بلغة المستخدم العربية أو الإنجليزية بدقة ووضوح. المعرفة بالبرنامج من الدليل المرفق لا من التخمين.',
-   'عند حل مسألة رقمية مدعومة استدع أداة الحساب أولاً ثم اشرح النتائج والمعادلات والوحدات والافتراضات والقيود. لا تخترع مدخلات ناقصة أو حدود أكواد؛ اسأل عند الحاجة.',
-   'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح أي صفحة مدعومة، وprepare_main_form لتعبئة حاسبات الصفحة الرئيسية وprepare_studio_form لتعبئة الكمرات والقطاعات والقواعد وحديد التسليح والحفر والردم. كل أفعال التحكم تحتاج تأكيد المستخدم، ولا تحفظ أو تحذف أو تغير المشاريع من تلقاء نفسك. استخدم أدوات الحساب المعتمدة للمسائل المدعومة، وقدم تعبئة الحاسبة كإجراء مقترح فقط.',
+   'عند حل مسألة رقمية مدعومة استدع أداة الحساب أولاً ثم اشرح النتائج والمعادلات والوحدات والافتراضات والقيود. يمكن للمستخدم إنشاء تقرير مطبوع من النتائج التي تعيدها أداة الحساب عبر زر التقرير. لا تدع أنك أنشأت أو حفظت تقريرًا قبل ضغطه على الزر. لا تخترع مدخلات ناقصة أو حدود أكواد؛ اسأل عند الحاجة.',
+   'استخدم program_help لفهم ميزات Civil AI، وopen_page لاقتراح فتح أي صفحة مدعومة، وprepare_main_form وprepare_studio_form لتعبئة الحاسبات المدعومة. إذا قدم المستخدم إحداثيات X,Y محددة لزوايا أرض بالمتر وأراد إدخالها فاستخدم prepare_land_polygon للتحقق من المضلع واقتراح تعبئة الحاسبة. لا تستنتج إحداثيات مترية من صورة أو عنوان. جميع الإجراءات تحتاج موافقة المستخدم، ولا تحفظ أو تحذف أو تغير مشاريعه تلقائيًا.',
    'لا تدعِ القيام بتحليل FEM أو تنفيذ Robot أو قراءة ملف DWG إن لم تنفذ أدوات موثوقة. عند وصول صورة يمكنك وصف الظاهر فقط دون اختلاق أبعاد أو قراءات غير واضحة. تصميم الخلطة الخرسانية وكود البناء يحتاجان مراجعة مهندس. لا تختلق مصادر.',
    'إن كانت المسألة خارج نطاق الحاسبات الرقمية فقدم منهج الحل وتحقق من الأبعاد ومعلومات التصميم، ولا تدع الفحص المبدئي فحصاً معتمداً.',
    'النموذج الخارجي يختار نموذجاً مجانياً فقط دون تحويل إلى نموذج مدفوع احتياطياً. الإجابات الحرة قد تكون غير دقيقة؛ استخدم الأدوات الحسابية للنتائج المدعومة.',
@@ -276,7 +286,7 @@ module.exports=async function(req,res){
      let result;
      try{
       const args=JSON.parse(call.function?.arguments||'{}'),name=String(call.function?.name||'');
-      if(['open_tool','prepare_main_form','open_page','prepare_studio_form'].includes(name)){
+      if(['open_tool','prepare_main_form','open_page','prepare_studio_form','prepare_land_polygon'].includes(name)){
        result=act(name,args);if(actions.length<6)actions.push(result);
       }else if(Object.hasOwn(advanced.specs,name)){
        result=advanced.calculate(name,args);if(calculations.length<6)calculations.push(result);
