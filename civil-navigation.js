@@ -2,7 +2,7 @@
 (function(){
  'use strict';
  const KEY='civilai-site-theme-v2';
- const choices=[['/','⌂ الرئيسية','home'],['/studio.html','⌁ المختبر','studio'],['/satellite-land.html','◈ قياس الخرائط','satellite'],['/assistant.html','✦ المساعد','assistant']];
+ const choices=[['/','⌂ الرئيسية','home'],['/assistant.html','✦ المساعد','assistant'],['/studio.html','▥ المختبر','studio'],['/satellite-land.html','◈ الأراضي','satellite'],['/?open=projects','▤ مشاريعي','projects']];
  function getTheme(){try{return localStorage.getItem(KEY)||'light'}catch{return 'light'}}
  function setTheme(value){const theme=value==='light'?'light':'dark';document.documentElement.setAttribute('data-civil-theme',theme);
   try{localStorage.setItem(KEY,theme)}catch{}
@@ -10,7 +10,7 @@
  }
  function toggle(){setTheme(getTheme()==='light'?'dark':'light')}
  function button(){const b=document.createElement('button');b.type='button';b.className='civil-theme-toggle';b.addEventListener('click',toggle);return b}
- function page(){const p=location.pathname;if(p.endsWith('studio.html'))return 'studio';if(p.endsWith('satellite-land.html'))return 'satellite';if(p.endsWith('assistant.html'))return 'assistant';return null}
+ function page(){const p=location.pathname;if(p.endsWith('studio.html'))return 'studio';if(p.endsWith('satellite-land.html'))return 'satellite';if(p.endsWith('assistant.html'))return 'assistant';if((p==='/'||p.endsWith('/index.html'))&&new URLSearchParams(location.search).get('open')==='projects')return 'projects';return null}
  function init(){
   if(!document.body||document.querySelector('.civil-global'))return;
   const path=location.pathname;
