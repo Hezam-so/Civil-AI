@@ -34,7 +34,7 @@
   const visible=matches.filter(card=>!card.hidden).length;
   count.textContent=phrases[lang].count(visible,matches.length);
   empty.hidden=matches.length!==0;
-  more.hidden=category!=='all'||query.length>0||matches.length<=visible&&expanded===false;
+  more.hidden=category!=='all'||query.length>0||(!expanded&&matches.length<=visible);
   // Keep the collapse control visible when the directory was expanded.
   if(category==='all'&&!query&&expanded)more.hidden=false;
   more.setAttribute('aria-expanded',String(expanded));
@@ -62,7 +62,14 @@
   expanded=!expanded;filter();
   if(!expanded)document.querySelector('#home .portal-directory-title')?.scrollIntoView({behavior:'smooth',block:'start'});
  });
- search.addEventListener('input',filter);
+ search.addEventListener('input',()=>{
+  // Search means search the whole site, not only the previously selected category.
+  if(search.value.trim()&&category!=='all')setCategory('all');
+  else filter();
+ });
+ search.addEventListener('keydown',event=>{
+  if(event.key==='Escape'&&search.value){search.value='';filter();search.blur()}
+ });
  function syncLanguage(next){
   lang=next==='en'?'en':'ar';
   document.querySelectorAll('#home [data-menu-ar][data-menu-en]').forEach(element=>{
