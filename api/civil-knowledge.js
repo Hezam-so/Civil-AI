@@ -19,7 +19,7 @@ const pages=[
  {id:'cad',name:'عارض CAD / CAD viewer',route:'/cad-viewer.html',summary:'واجهة عرض ملفات CAD ضمن ما تدعمه الأداة.',limits:'العارض ليس AutoCAD كاملاً ولا يضمن دعم كل DWG.',keywords:['cad','dxf viewer','عارض cad']},
  {id:'model',name:'عارض النماذج / Model viewer',route:'/model-viewer.html',summary:'صفحة عارض النماذج الهندسية المدعومة.',limits:'لا يدّعي تشغيل تحليل إنشائي دون دعم فعلي.',keywords:['عارض','model','3d','نموذج ثلاثي']},
  {id:'robot',name:'عارض Robot / Robot viewer',route:'/robot-viewer.html',summary:'صفحة مرتبطة بمعاينة ملفات برنامج Robot وتوجيه التكامل.',limits:'لا يمكن تنفيذ تحليل Robot Structural Analysis على الخادم ما لم يتم الربط الخارجي.',keywords:['robot','روبوت','aps']},
- {id:'assistant',name:'المساعد الهندسي / Assistant',route:'/assistant.html',summary:'المحادثة الذكية الهندسية، رفع صورة مدعومة PNG/JPEG/WEBP، اقتراح الانتقال وتعبئة نموذج بعد الموافقة، وأدوات رياضية حتمية.',limits:'تتأثر استجابة النموذج بتوفر المزود؛ تأكد من نتائج الحسابات العالية الخطورة.',keywords:['مساعد','ذكاء','سؤال','chat','assistant','ai']}
+ {id:'assistant',name:'المساعد الهندسي / Assistant',route:'/assistant.html',summary:'المحادثة الذكية الهندسية، رفع صورة مدعومة PNG/JPEG/WEBP، اقتراح الانتقال وتعبئة الحاسبات وحدود الأراضي بالإحداثيات المترية بعد الموافقة، وإعداد تقرير قابل للطباعة أو الحفظ PDF لنتائج أدوات الحساب.',limits:'تتأثر استجابة النموذج بتوفر المزود؛ تأكد من نتائج الحسابات العالية الخطورة.',keywords:['مساعد','ذكاء','سؤال','chat','assistant','ai']}
 ];
 const lookup=(query)=>{
  const term=String(query||'').toLowerCase().trim();
