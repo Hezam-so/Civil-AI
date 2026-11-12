@@ -246,6 +246,26 @@ module.exports=async function(req,res){
   const image=String(input.attachmentDataUrl||'');
   if(image&&(!/^data:image\/(?:png|jpeg|webp);base64,[a-z0-9+/=\s]+$/i.test(image)||image.length>3900000))
    return respond(res,415,{error:'المرفقات المدعومة حاليًا: صورة PNG أو JPEG أو WebP لا تتجاوز 2.8 MB. لا ترفع PDF هنا.'});
+  // Reliable local action routing for explicit metric XY vertex lists.
+  // This needs neither model inference nor external tool-call support.
+  const landTask=/(زوايا|إحداثيات|احداثيات|مضلع|vertices|coordinates)/i.test(question)&&
+   /(ادخل|أدخل|تعبئ|املأ|ارسم|جهز|افتح|احسب|fill|draw|calculate|prepare)/i.test(question);
+  if(landTask){
+   const normalized=question.replace(/[٠-٩]/g,d=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)))
+    .replace(/[۰-۹]/g,d=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/٫/g,'.');
+   const pairs=[...normalized.matchAll(/[(\[]\s*(-?\d+(?:\.\d+)?)\s*[,،;]\s*(-?\d+(?:\.\d+)?)\s*[)\]]/g)]
+    .map(m=>({x:Number(m[1]),y:Number(m[2])}));
+   if(pairs.length>=3){
+    try{
+     const result=advanced.calculate('polygon_area',{points:pairs});
+     const action=act('prepare_land_polygon',{points:pairs,title:'حدود أرض من المساعد'});
+     return respond(res,200,{answer:'تم حساب المساحة من الإحداثيات المترية المدخلة. اضغط «تأكيد تعبئة النموذج» لمراجعة الرسم في حاسبة الأرض. لن تُحفظ البيانات تلقائيًا.',
+      mode:'calculator',calculations:[result],actions:[action]});
+    }catch(e){
+     return respond(res,400,{error:'إحداثيات الأرض غير صالحة: '+String(e.message).slice(0,180)});
+    }
+   }
+  }
   if(input.aiMode==='local')return respond(res,200,offlineAnswer(question,'local-selected',input.history));
   try{req.civilOpenRouterKey=await openrouterOAuth.load(GLOBAL_OWNER_ID);}
   catch(e){console.warn('Civil AI shared OpenRouter key read failed',e.name);}
