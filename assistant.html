@@ -48,7 +48,7 @@ hr{border:0;border-top:1px solid var(--edge);margin:20px 0}
 <header><div class="brand">CIVIL <b>AI</b> <span style="font-weight:450;font-size:15px">/ مساعدك الهندسي</span></div><nav class="links"><a href="/">الرئيسية</a><a href="studio.html">Studio</a><a href="upload.html">إرفاق المخططات</a><a href="/?open=projects">مشاريعي</a></nav></header>
 <main>
 <h1>المساعد الهندسي الذكي</h1>
-<p class="intro">اسأل عن أي فكرة هندسية، أو اطلب حل مسألة مدعومة. يستخدم المساعد أدوات حساب عددية ذات معادلات ثابتة، ويقترح فتح الأقسام وتعبئتها <strong>بعد موافقتك فقط</strong>.</p>
+<p class="intro">اسأل عن أي فكرة هندسية، أو اطلب حل مسألة مدعومة. يستخدم المساعد حاسبات هندسية فعلية، ويقترح فتح الأدوات وتعبئة زوايا الأراضي <strong>بعد موافقتك فقط</strong>. ويمكن عرض تقرير قابل للطباعة أو حفظ PDF من النتائج الحسابية.</p>
 <div class="status" id="aiStatus">جارٍ فحص اتصال الذكاء الاصطناعي…</div>
 <div class="layout">
 <section class="panel" aria-label="المحادثة مع المساعد">
@@ -57,6 +57,7 @@ hr{border:0;border-top:1px solid var(--edge);margin:20px 0}
 <button class="chip" data-question="اشرح لي طريقة حساب العزم الأقصى لكمرة بسيطة الارتكاز طولها 6 متر وحمل موزع 10 كيلو نيوتن لكل متر، واحسبها بالأداة.">مسألة كمرة</button>
 <button class="chip" data-question="احسب حجم الخرسانة لعنصر أبعاده 5 × 4 × 0.2 متر، مع هدر 5% باستخدام الأداة.">حجم خرسانة</button>
 <button class="chip" data-question="افتح صفحة حصر حديد التسليح في Studio.">افتح أداة التسليح</button>
+<button class="chip" data-question="احسب مساحة قطعة أرض غير منتظمة من الزوايا بالمتر: (0,0)، (30,0)، (30,20)، (0,20). ثم اعرض زر تعبئة حاسبة الأراضي لإنشاء الرسم.">أدخل زوايا أرض</button>
 </div>
 <div class="chat-log" id="chatLog" aria-live="polite"><div class="msg ai">مرحبًا! أنا مساعد Civil AI. اكتب سؤالك بالعربية أو الإنجليزية. للمسائل العددية اختر الحاسبة الموثوقة أيضًا. النتائج المبدئية ليست بديلاً عن مراجعة مهندس متخصص.</div></div>
 <form class="chat-form" id="chatForm">
@@ -97,5 +98,6 @@ hr{border:0;border-top:1px solid var(--edge);margin:20px 0}
 <div class="notice">تنبيه هندسي: الحسابات أولية وتقتصر على حالات محددة؛ لا يعتمد عليها لتصميم منشآت أو التحقق من السلامة أو مطابقة الأكواد دون مراجعة هندسية مستقلة، وتوثيق الأحمال والمواد وحالات التحميل.</div>
 </main>
 </div>
+<script src="assistant-report.js" defer></script>
 <script src="assistant-ui.js" defer></script>
 </body></html>
