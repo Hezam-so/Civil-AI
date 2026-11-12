@@ -389,4 +389,29 @@ $('saveProject').onclick=async()=>{
  }catch(e){showStatus('تعذر حفظ المشروع: '+e.message,true)}finally{btn.disabled=false}
 };
 renderInputs();setMode('coordinates');
+// Confirmed agent proposal only: never auto-save or export user data.
+(function applyConfirmedPolygon(){
+ const key='civilai_confirmed_irregular_prefill';
+ let raw;
+ try{raw=sessionStorage.getItem(key)}catch{return}
+ if(!raw)return;
+ try{sessionStorage.removeItem(key)}catch{}
+ try{
+  const a=JSON.parse(raw);
+  if(!a||a.page!=='irregular'||!Number.isFinite(a.at)||a.at>Date.now()||
+     Date.now()-a.at>5*60*1000||!a.fields||!Array.isArray(a.fields.points)||
+     a.fields.points.length<3||a.fields.points.length>100)throw Error('انتهت صلاحية بيانات تعبئة الأرض.');
+  const proposed=a.fields.points.map(p=>({x:Number(p.x),y:Number(p.y)}));
+  if(proposed.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)||
+     Math.abs(p.x)>1e8||Math.abs(p.y)>1e8))throw Error('إحداثيات الأرض غير صحيحة.');
+  const result=G.polygonArea(proposed);
+  if(!result.valid)throw Error('مضلع الأرض غير صالح أو متقاطع.');
+  recordUndo();
+  points=proposed.map(p=>({x:String(p.x),y:String(p.y)}));
+  selected=-1;
+  $('projectTitle').value=String(a.fields.title||'أرض غير منتظمة').trim().slice(0,120);
+  renderInputs();setMode('coordinates');
+  showStatus('تمت تعبئة '+points.length+' زوايا بعد موافقتك. المساحة '+fmt(result.area,4)+' م². راجع الحدود ثم اضغط حفظ المشروع إذا أردت.');
+ }catch(err){showStatus('لم تُطبّق تعبئة المساعد: '+err.message,true)}
+})();
 })();
